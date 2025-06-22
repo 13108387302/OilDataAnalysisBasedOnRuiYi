@@ -1,0 +1,26 @@
+fastapi
+uvicorn[standard]
+python-dotenv
+
+# --- Existing dependencies from the old file ---
+# Base
+numpy
+pandas
+scipy
+
+# File I/O
+lasio
+
+# Machine Learning
+scikit-learn
+lightgbm
+xgboost
+
+# Deep Learning (PyTorch as specified in doc 3.2.4)
+torch
+torchvision
+torchaudio
+
+# Visualization (for server-side plotting if needed)
+matplotlib
+seaborn 

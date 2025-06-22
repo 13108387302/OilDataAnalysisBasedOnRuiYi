@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- 添加状态监听器，这会打印Logback自身的启动和错误信息到控制台 -->
+    <statusListener class="ch.qos.logback.core.status.OnConsoleStatusListener" />
+
+    <!-- 引用 Spring Boot 的默认配置 -->
+    <include resource="org/springframework/boot/logging/logback/base.xml"/>
+
+    <!-- 日志文件保存路径 (在项目根目录下的 logs 文件夹中) -->
+    <property name="LOG_PATH" value="${user.dir}/logs" />
+
+    <!--
+        文件日志输出配置 (FileAppender)
+        每次启动时会覆盖日志文件
+    -->
+    <appender name="FILE" class="ch.qos.logback.core.FileAppender">
+        <!-- 日志文件的路径和名称 -->
+        <file>${LOG_PATH}/java_app.log</file>
+        
+        <!-- 设置为 false，表示不追加，每次启动都覆盖 -->
+        <append>false</append>
+
+        <!-- 日志格式 -->
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!--
+        根 Logger 配置
+        将新的 FILE appender 添加到根 logger 中
+    -->
+    <root level="INFO">
+        <appender-ref ref="FILE" />
+    </root>
+
+</configuration> 
