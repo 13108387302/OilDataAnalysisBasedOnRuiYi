@@ -4,11 +4,10 @@
 注意：已移除所有模拟数据，只使用真实数据和真实模型
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from typing import List, Optional, Dict, Any
 import logging
-import json
-from app.schemas.task import PredictRequest, TaskSubmitRequest, TaskSubmitResponse
+from app.schemas.task import PredictRequest, TaskSubmitRequest
 from pydantic import BaseModel, Field
 
 # 定义AnalysisRequest模型
@@ -37,6 +36,42 @@ class ErrorCodes:
     FILE_NOT_FOUND = 1008
     MODEL_NOT_FOUND = 1009
     DATA_VALIDATION_FAILED = 1010
+
+
+def check_ml_dependencies():
+    """检查机器学习依赖包，返回错误响应或None"""
+    try:
+        import sklearn
+        import pandas as pd
+        import numpy as np
+        logging.info("✅ 检测到机器学习依赖包")
+        return None
+    except ImportError as e:
+        missing_packages = []
+        try:
+            import sklearn  # noqa: F401
+        except ImportError:
+            missing_packages.append("scikit-learn")
+
+        try:
+            import pandas  # noqa: F401
+        except ImportError:
+            missing_packages.append("pandas")
+
+        try:
+            import numpy  # noqa: F401
+        except ImportError:
+            missing_packages.append("numpy")
+
+        error_message = f"缺少必需的机器学习依赖包: {', '.join(missing_packages)}。请安装: pip install {' '.join(missing_packages)}"
+        logging.error(f"❌ [错误码:{ErrorCodes.DEPENDENCY_MISSING}] {error_message}")
+
+        return create_error_response(
+            error_code=ErrorCodes.DEPENDENCY_MISSING,
+            message=error_message,
+            missing_packages=missing_packages,
+            installation_command=f"pip install {' '.join(missing_packages)}"
+        )
 
 # 错误信息映射
 ERROR_MESSAGES = {
@@ -243,26 +278,6 @@ async def submit_task(task_request: TaskSubmitRequest):
         )
 
 
-@router.post("/analyze")
-async def analyze_data(analysis_request: AnalysisRequest):
-    """
-    执行数据分析任务
-    注意：当前版本要求使用真实的机器学习框架
-    """
-    try:
-        logging.info(f"开始处理分析任务请求: {analysis_request.model_dump()}")
-
-        # 当前版本不支持分析任务，需要真实的机器学习框架
-        logging.error("❌ 当前分析功能需要集成真实的机器学习框架")
-        raise ValueError(
-            "分析功能需要集成真实的机器学习框架（如scikit-learn、TensorFlow等）。"
-            "请联系系统管理员配置机器学习环境。"
-        )
-
-    except Exception as e:
-        logging.error(f"分析任务处理失败: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"分析任务执行失败: {str(e)}")
-
 
 @router.post("/predict")
 async def predict_data(predict_request: PredictRequest):
@@ -274,38 +289,9 @@ async def predict_data(predict_request: PredictRequest):
         logging.info(f"开始处理预测任务请求: {predict_request.model_dump()}")
 
         # 检查必需的依赖包
-        try:
-            import sklearn
-            import pandas as pd
-            import numpy as np
-            logging.info("✅ 检测到机器学习依赖包")
-
-        except ImportError as e:
-            missing_packages = []
-            try:
-                import sklearn  # noqa: F401
-            except ImportError:
-                missing_packages.append("scikit-learn")
-
-            try:
-                import pandas  # noqa: F401
-            except ImportError:
-                missing_packages.append("pandas")
-
-            try:
-                import numpy  # noqa: F401
-            except ImportError:
-                missing_packages.append("numpy")
-
-            error_message = f"缺少必需的机器学习依赖包: {', '.join(missing_packages)}。请安装: pip install {' '.join(missing_packages)}"
-            logging.error(f"❌ [错误码:{ErrorCodes.DEPENDENCY_MISSING}] {error_message}")
-
-            return create_error_response(
-                error_code=ErrorCodes.DEPENDENCY_MISSING,
-                message=error_message,
-                missing_packages=missing_packages,
-                installation_command=f"pip install {' '.join(missing_packages)}"
-            )
+        dependency_error = check_ml_dependencies()
+        if dependency_error:
+            return dependency_error
 
         # 调用预测算法
         try:
@@ -427,38 +413,9 @@ async def batch_predict_data(batch_request: Dict[str, Any]):
         logging.info(f"开始处理批量预测任务请求: {batch_request}")
 
         # 检查必需的依赖包
-        try:
-            import sklearn
-            import pandas as pd
-            import numpy as np
-            logging.info("✅ 检测到机器学习依赖包")
-
-        except ImportError as e:
-            missing_packages = []
-            try:
-                import sklearn  # noqa: F401
-            except ImportError:
-                missing_packages.append("scikit-learn")
-
-            try:
-                import pandas  # noqa: F401
-            except ImportError:
-                missing_packages.append("pandas")
-
-            try:
-                import numpy  # noqa: F401
-            except ImportError:
-                missing_packages.append("numpy")
-
-            error_message = f"缺少必需的机器学习依赖包: {', '.join(missing_packages)}。请安装: pip install {' '.join(missing_packages)}"
-            logging.error(f"❌ [错误码:{ErrorCodes.DEPENDENCY_MISSING}] {error_message}")
-
-            return create_error_response(
-                error_code=ErrorCodes.DEPENDENCY_MISSING,
-                message=error_message,
-                missing_packages=missing_packages,
-                installation_command=f"pip install {' '.join(missing_packages)}"
-            )
+        dependency_error = check_ml_dependencies()
+        if dependency_error:
+            return dependency_error
 
         # 调用批量预测算法
         try:

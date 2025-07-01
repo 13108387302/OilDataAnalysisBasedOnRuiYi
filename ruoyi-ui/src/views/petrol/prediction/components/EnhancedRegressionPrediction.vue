@@ -509,8 +509,8 @@ export default {
         this.checkPredictionStatus();
       }, 2000); // 每2秒检查一次
 
-      // 模拟进度更新
-      this.simulateProgress();
+      // 初始化进度状态
+      this.initializeProgress();
     },
 
     async checkPredictionStatus() {
@@ -531,36 +531,46 @@ export default {
       }
     },
 
-    simulateProgress() {
-      // 🔴 系统已禁用模拟进度，使用确定性进度更新
-      console.warn('⚠️ 系统已禁用模拟进度生成，使用确定性进度更新');
+    initializeProgress() {
+      // 初始化进度状态，基于真实任务状态更新
+      this.predictionProgress.percentage = 10;
+      this.predictionProgress.currentStep = 1;
+      this.predictionProgress.statusText = '正在提交预测任务...';
 
+      // 设置基于真实状态检查的进度更新
       const progressInterval = setInterval(() => {
-        if (this.predictionProgress.percentage < 90) {
-          // 使用确定性增长而不是随机数
-          this.predictionProgress.percentage += 5; // 固定增长5%
-          if (this.predictionProgress.percentage > 90) {
-            this.predictionProgress.percentage = 90;
-          }
-        }
+        // 只有在任务还在运行时才更新进度
+        if (this.predictionProgress.status === 'active') {
+          // 基于当前步骤和时间的确定性进度更新
+          const currentTime = Date.now();
+          const elapsedTime = currentTime - this.predictionProgress.startTime;
 
-        // 根据进度更新步骤
-        if (this.predictionProgress.percentage > 20 && this.predictionProgress.currentStep < 2) {
-          this.predictionProgress.currentStep = 2;
-          this.predictionProgress.statusText = '正在处理数据...';
-        }
-        if (this.predictionProgress.percentage > 50 && this.predictionProgress.currentStep < 3) {
-          this.predictionProgress.currentStep = 3;
-          this.predictionProgress.statusText = '模型正在执行预测...';
-        }
-        if (this.predictionProgress.percentage > 80 && this.predictionProgress.currentStep < 4) {
-          this.predictionProgress.currentStep = 4;
-          this.predictionProgress.statusText = '正在生成结果...';
+          // 根据经过时间计算进度（最多到90%，等待真实完成状态）
+          const timeBasedProgress = Math.min(90, 10 + (elapsedTime / 1000) * 2); // 每秒增长2%
+
+          if (timeBasedProgress > this.predictionProgress.percentage) {
+            this.predictionProgress.percentage = Math.floor(timeBasedProgress);
+          }
+
+          // 根据进度更新步骤描述
+          if (this.predictionProgress.percentage > 20 && this.predictionProgress.currentStep < 2) {
+            this.predictionProgress.currentStep = 2;
+            this.predictionProgress.statusText = '正在处理数据...';
+          }
+          if (this.predictionProgress.percentage > 50 && this.predictionProgress.currentStep < 3) {
+            this.predictionProgress.currentStep = 3;
+            this.predictionProgress.statusText = '模型正在执行预测...';
+          }
+          if (this.predictionProgress.percentage > 80 && this.predictionProgress.currentStep < 4) {
+            this.predictionProgress.currentStep = 4;
+            this.predictionProgress.statusText = '正在生成结果...';
+          }
         }
       }, 1000);
 
       // 保存interval ID以便清理
       this.predictionProgress.progressInterval = progressInterval;
+      this.predictionProgress.startTime = Date.now();
     },
 
     onPredictionCompleted() {

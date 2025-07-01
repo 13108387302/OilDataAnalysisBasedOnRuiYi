@@ -140,93 +140,7 @@ public class PetrolPredictionServiceImpl implements IPetrolPredictionService
         return petrolPredictionMapper.selectPredictionsByModelId(modelId);
     }
 
-    /**
-     * 执行预测
-     * 
-     * @param modelId 模型ID
-     * @param inputData 输入数据
-     * @param predictionName 预测名称
-     * @return 预测结果
-     */
-    @Override
-    public Map<String, Object> executePrediction(Long modelId, Map<String, Object> inputData, String predictionName)
-    {
-        Map<String, Object> result = new HashMap<>();
-        PetrolPrediction prediction = null;
 
-        try {
-            // 获取模型信息
-            PetrolModel model = petrolModelMapper.selectPetrolModelById(modelId);
-            if (model == null) {
-                result.put("success", false);
-                result.put("message", "模型不存在");
-                return result;
-            }
-
-            // 创建预测记录
-            prediction = new PetrolPrediction();
-            prediction.setPredictionName(predictionName);
-            prediction.setModelId(modelId);
-            prediction.setModelName(model.getModelName());
-            prediction.setStatus("RUNNING");
-            prediction.setInputData(objectMapper.writeValueAsString(inputData));
-            
-            insertPetrolPrediction(prediction);
-
-            // 调用Python API执行预测
-            Map<String, Object> pythonRequest = new HashMap<>();
-            pythonRequest.put("model_path", model.getModelPath());
-            pythonRequest.put("input_data", inputData);
-            pythonRequest.put("model_type", model.getModelType());
-            pythonRequest.put("algorithm", model.getAlgorithm());
-
-            long startTime = System.currentTimeMillis();
-            Map<String, Object> pythonResult = pythonExecutorService.predict(pythonRequest);
-            long endTime = System.currentTimeMillis();
-
-            // 更新预测记录
-            prediction.setExecutionTime((endTime - startTime) / 1000);
-            
-            if (pythonResult != null && pythonResult.containsKey("success") && Boolean.TRUE.equals(pythonResult.get("success"))) {
-                prediction.setStatus("COMPLETED");
-                Object resultData = pythonResult.get("result");
-                if (resultData != null) {
-                    prediction.setPredictionResult(objectMapper.writeValueAsString(resultData));
-                }
-
-                result.put("success", true);
-                result.put("predictionId", prediction.getId());
-                result.put("result", resultData);
-            } else {
-                prediction.setStatus("FAILED");
-                Object messageObj = pythonResult != null ? pythonResult.get("message") : null;
-                String errorMessage = messageObj != null ? messageObj.toString() : "Python API调用失败，未返回有效响应";
-                prediction.setErrorMessage(errorMessage);
-
-                result.put("success", false);
-                result.put("message", errorMessage);
-            }
-
-            updatePetrolPrediction(prediction);
-
-        } catch (Exception e) {
-            log.error("预测执行异常", e);
-            // 确保数据库状态一致性
-            if (prediction != null && prediction.getId() != null) {
-                try {
-                    prediction.setStatus("FAILED");
-                    prediction.setErrorMessage("预测执行异常: " + e.getMessage());
-                    updatePetrolPrediction(prediction);
-                } catch (Exception dbException) {
-                    log.error("更新预测记录状态失败", dbException);
-                }
-            }
-            result.put("success", false);
-            result.put("message", "预测执行失败: " + e.getMessage());
-        }
-
-        return result;
-    }
 
     /**
      * 批量预测（文件上传）
@@ -1303,16 +1217,7 @@ public class PetrolPredictionServiceImpl implements IPetrolPredictionService
         return indices;
     }
 
-    /**
-     * 生成默认置信度（已完全禁用模拟数据）
-     * 注意：系统已完全禁用所有模拟数据生成，此方法将抛出异常
-     */
-    @Deprecated
-    private List<Double> generateDefaultConfidences(int count) {
-        String errorMessage = "系统已完全禁用模拟数据生成，预测结果必须包含真实的置信度数据";
-        log.error("❌ 尝试生成默认置信度: {}", errorMessage);
-        throw new RuntimeException(errorMessage);
-    }
+
 
     /**
      * 从预测结果生成统计信息

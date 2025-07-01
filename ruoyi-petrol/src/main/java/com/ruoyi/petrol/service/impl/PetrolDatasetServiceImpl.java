@@ -8,13 +8,8 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.*;
-import java.util.stream.Collectors;
-
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.poi.ss.usermodel.*;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
@@ -24,10 +19,11 @@ import org.springframework.web.multipart.MultipartFile;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.SecurityUtils;
 import com.ruoyi.common.utils.file.FileUploadUtils;
-import com.ruoyi.common.config.RuoYiConfig;
+
 import com.ruoyi.petrol.domain.PetrolDataset;
 import com.ruoyi.petrol.mapper.PetrolDatasetMapper;
 import com.ruoyi.petrol.service.IPetrolDatasetService;
+import com.ruoyi.petrol.security.ValidationUtils;
 import com.ruoyi.petrol.aspect.PerformanceAspect.PerformanceMonitor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -311,8 +307,8 @@ public class PetrolDatasetServiceImpl implements IPetrolDatasetService
     }
 
     /**
-     * 验证数据集文件格式
-     * 
+     * 验证数据集文件格式（使用统一的验证工具类）
+     *
      * @param file 文件
      * @return 验证结果
      */
@@ -320,7 +316,7 @@ public class PetrolDatasetServiceImpl implements IPetrolDatasetService
     public Map<String, Object> validateDatasetFile(MultipartFile file)
     {
         Map<String, Object> result = new HashMap<>();
-        
+
         if (file == null || file.isEmpty()) {
             result.put("valid", false);
             result.put("message", "文件不能为空");
@@ -334,17 +330,16 @@ public class PetrolDatasetServiceImpl implements IPetrolDatasetService
             return result;
         }
 
-        String extension = getFileExtension(fileName).toLowerCase();
-        if (!Arrays.asList("csv", "xlsx", "xls").contains(extension)) {
+        // 使用统一的验证工具类
+        if (!ValidationUtils.isValidFilename(fileName)) {
             result.put("valid", false);
-            result.put("message", "不支持的文件格式，仅支持 CSV、XLSX、XLS 格式");
+            result.put("message", "文件名不符合安全要求或格式不支持");
             return result;
         }
 
-        // 检查文件大小（限制为100MB）
-        if (file.getSize() > 100 * 1024 * 1024) {
+        if (!ValidationUtils.isValidFileSize(file.getSize())) {
             result.put("valid", false);
-            result.put("message", "文件大小不能超过100MB");
+            result.put("message", "文件大小超出限制（最大100MB）");
             return result;
         }
 
@@ -354,7 +349,7 @@ public class PetrolDatasetServiceImpl implements IPetrolDatasetService
     }
 
     /**
-     * 获取文件扩展名
+     * 获取文件扩展名（简化版本）
      */
     private String getFileExtension(String fileName) {
         if (fileName == null || fileName.lastIndexOf(".") == -1) {
@@ -362,6 +357,8 @@ public class PetrolDatasetServiceImpl implements IPetrolDatasetService
         }
         return fileName.substring(fileName.lastIndexOf(".") + 1);
     }
+
+
 
     /**
      * 将存储的相对路径转换为实际文件系统路径

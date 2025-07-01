@@ -268,7 +268,14 @@ public class PetrolPredictionController extends BaseController
             @SuppressWarnings("unchecked")
             Map<String, Object> inputData = (Map<String, Object>) request.get("inputData");
 
-            Map<String, Object> result = petrolPredictionService.executePrediction(modelId, inputData, predictionName);
+            // 构建预测数据
+            Map<String, Object> predictionData = new HashMap<>();
+            predictionData.put("predictionName", predictionName);
+            predictionData.put("modelId", modelId);
+            predictionData.put("inputData", inputData);
+
+            // 使用新的增强预测方法
+            Map<String, Object> result = petrolPredictionService.createEnhancedPrediction(predictionData);
 
             if ((Boolean) result.get("success")) {
                 AjaxResult ajaxResult = success("预测执行成功");

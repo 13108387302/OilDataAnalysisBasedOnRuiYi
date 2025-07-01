@@ -190,7 +190,7 @@ export function getCompatibleModels(availableModels, selectedFeatures, dataColum
  * 生成预测行数序列
  * @param {number} totalRows - 数据总行数
  * @param {number} sampleCount - 要预测的样本数量
- * @param {string} strategy - 采样策略：'sequential', 'random', 'custom'
+ * @param {string} strategy - 采样策略：'sequential', 'custom'
  * @param {Array} customIndices - 自定义行索引（当strategy为'custom'时使用）
  * @returns {Array} 行索引数组
  */
@@ -199,19 +199,14 @@ export function generatePredictionIndices(totalRows, sampleCount, strategy = 'se
     case 'sequential':
       // 顺序选择前N行
       return Array.from({ length: Math.min(sampleCount, totalRows) }, (_, i) => i)
-    
-    case 'random':
-      // 🔴 系统已完全禁用随机数生成 - 抛出错误
-      const errorMessage = '系统已完全禁用随机数生成，请使用确定性采样策略（sequential或custom）'
-      console.error('❌ 随机采样已禁用:', errorMessage)
-      throw new Error(errorMessage)
-    
+
     case 'custom':
       // 使用自定义索引
       return customIndices.filter(index => index >= 0 && index < totalRows)
-    
+
     default:
-      return []
+      console.warn(`未知的采样策略: ${strategy}，使用默认的顺序策略`)
+      return Array.from({ length: Math.min(sampleCount, totalRows) }, (_, i) => i)
   }
 }
 

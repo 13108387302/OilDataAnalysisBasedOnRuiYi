@@ -69,15 +69,7 @@ public interface IPetrolPredictionService
      */
     public List<PetrolPrediction> selectPredictionsByModelId(Long modelId);
 
-    /**
-     * 执行预测
-     * 
-     * @param modelId 模型ID
-     * @param inputData 输入数据
-     * @param predictionName 预测名称
-     * @return 预测结果
-     */
-    public Map<String, Object> executePrediction(Long modelId, Map<String, Object> inputData, String predictionName);
+
 
     /**
      * 批量预测（文件上传）

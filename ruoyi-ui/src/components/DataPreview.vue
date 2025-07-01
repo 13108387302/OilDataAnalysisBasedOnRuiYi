@@ -50,11 +50,9 @@
           <el-descriptions-item label="文件类型">{{ fileInfo.type }}</el-descriptions-item>
           <el-descriptions-item label="数据行数">
             {{ previewData.rowCount }}
-            <el-tag v-if="previewData._isMockData" size="mini" type="warning" style="margin-left: 5px;">模拟</el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="数据列数">
             {{ previewData.columnCount }}
-            <el-tag v-if="previewData._isMockData" size="mini" type="warning" style="margin-left: 5px;">模拟</el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="数据类型">
             {{ getDatasetType }}
@@ -640,7 +638,7 @@ export default {
             }
           } catch (error) {
             console.error(`❌ 处理列 ${col} 时出错:`, error)
-            row[col] = `错误值${i + 1}`
+            throw new Error(`数据列 ${col} 处理失败: ${error.message}`)
           }
         })
 

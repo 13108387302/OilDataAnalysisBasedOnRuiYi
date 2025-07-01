@@ -7,13 +7,14 @@ import com.ruoyi.petrol.domain.PetrolDataset;
 import com.ruoyi.petrol.service.IAnalysisTaskService;
 import com.ruoyi.petrol.service.IDataSourceService;
 import com.ruoyi.petrol.service.IPetrolDatasetService;
-import org.apache.poi.ss.usermodel.*;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+
+import org.apache.poi.ss.usermodel.*;
 
 import java.io.File;
 import java.util.*;
@@ -609,8 +610,6 @@ public class DataSourceServiceImpl implements IDataSourceService {
     }
 
     private List<Map<String, Object>> readExcelData(String filePath, List<String> columns, int maxRows) {
-        List<Map<String, Object>> data = new ArrayList<>();
-
         try {
             // 处理文件路径 - 转换为绝对路径
             String absolutePath = convertToAbsolutePath(filePath);
@@ -630,8 +629,8 @@ public class DataSourceServiceImpl implements IDataSourceService {
 
             log.info("✅ 文件存在且可读: {}", absolutePath);
 
-            // 使用安全的Excel读取方法
-            return readExcelDataSafely(file, columns, maxRows);
+            // 使用POI读取Excel文件
+            return readExcelWithPOI(file, columns, maxRows);
 
         } catch (Exception e) {
             log.error("读取Excel文件失败: {}", filePath, e);
@@ -640,113 +639,63 @@ public class DataSourceServiceImpl implements IDataSourceService {
     }
 
     /**
-     * 安全地读取Excel数据，避免POI的保存问题
+     * 使用POI读取Excel文件
      */
-    private List<Map<String, Object>> readExcelDataSafely(File file, List<String> columns, int maxRows) {
+    private List<Map<String, Object>> readExcelWithPOI(File file, List<String> columns, int maxRows) {
         List<Map<String, Object>> data = new ArrayList<>();
 
-        try {
-            // 使用简单的方式读取Excel，避免复杂的资源管理
-            Workbook workbook = new XSSFWorkbook(file);
+        try (Workbook workbook = WorkbookFactory.create(file)) {
             Sheet sheet = workbook.getSheetAt(0);
             Row headerRow = sheet.getRow(0);
 
             if (headerRow == null) {
                 log.error("Excel文件没有标题行: {}", file.getAbsolutePath());
-                throw new RuntimeException("Excel文件格式错误，缺少标题行: " + file.getAbsolutePath());
+                return data;
             }
 
-                // 获取列名
-                List<String> headers = new ArrayList<>();
-                for (Cell cell : headerRow) {
-                    String cellValue = "";
-                    if (cell != null) {
-                        switch (cell.getCellType()) {
-                            case STRING:
-                                cellValue = cell.getStringCellValue();
-                                break;
-                            case NUMERIC:
-                                cellValue = String.valueOf(cell.getNumericCellValue());
-                                break;
-                            default:
-                                cellValue = cell.toString();
-                        }
+            // 获取列名
+            List<String> headers = new ArrayList<>();
+            for (Cell cell : headerRow) {
+                String cellValue = getCellValueAsString(cell);
+                headers.add(cellValue);
+            }
+
+            log.info("Excel文件列名: {}", headers);
+
+            // 读取数据行
+            int rowCount = 0;
+            for (int i = 1; i <= sheet.getLastRowNum() && rowCount < maxRows; i++) {
+                Row row = sheet.getRow(i);
+                if (row == null) continue;
+
+                Map<String, Object> rowData = new HashMap<>();
+                boolean hasValidData = false;
+
+                for (int j = 0; j < headers.size(); j++) {
+                    String header = headers.get(j);
+
+                    // 如果指定了列，只读取这些列
+                    if (columns != null && !columns.isEmpty() && !columns.contains(header)) {
+                        continue;
                     }
-                    headers.add(cellValue);
+
+                    Cell cell = row.getCell(j);
+                    Object value = getCellValue(cell);
+
+                    if (value != null && !value.toString().isEmpty()) {
+                        hasValidData = true;
+                    }
+
+                    rowData.put(header, value);
                 }
 
-                log.info("Excel文件列名: {}", headers);
-
-                // 读取数据行
-                int rowCount = 0;
-                for (int i = 1; i <= sheet.getLastRowNum() && rowCount < maxRows; i++) {
-                    Row row = sheet.getRow(i);
-                    if (row == null) continue;
-
-                    Map<String, Object> rowData = new HashMap<>();
-                    boolean hasValidData = false;
-
-                    for (int j = 0; j < headers.size(); j++) {
-                        Cell cell = row.getCell(j);
-                        String header = headers.get(j);
-
-                        // 如果指定了列，只读取这些列
-                        if (columns != null && !columns.isEmpty() && !columns.contains(header)) {
-                            continue;
-                        }
-
-                        Object value = null;
-                        if (cell != null) {
-                            switch (cell.getCellType()) {
-                                case NUMERIC:
-                                    value = cell.getNumericCellValue();
-                                    hasValidData = true;
-                                    break;
-                                case STRING:
-                                    String stringValue = cell.getStringCellValue();
-                                    // 尝试转换为数字
-                                    try {
-                                        value = Double.parseDouble(stringValue);
-                                        hasValidData = true;
-                                    } catch (NumberFormatException e) {
-                                        value = stringValue;
-                                        if (!stringValue.isEmpty()) {
-                                            hasValidData = true;
-                                        }
-                                    }
-                                    break;
-                                case BOOLEAN:
-                                    value = cell.getBooleanCellValue();
-                                    hasValidData = true;
-                                    break;
-                                case FORMULA:
-                                    try {
-                                        value = cell.getNumericCellValue();
-                                        hasValidData = true;
-                                    } catch (Exception e) {
-                                        value = cell.getStringCellValue();
-                                        hasValidData = true;
-                                    }
-                                    break;
-                                default:
-                                    value = "";
-                            }
-                        } else {
-                            value = null;
-                        }
-                        rowData.put(header, value);
-                    }
-
-                    if (hasValidData) {
-                        data.add(rowData);
-                        rowCount++;
-                    }
+                if (hasValidData) {
+                    data.add(rowData);
+                    rowCount++;
                 }
+            }
 
             log.info("成功读取Excel数据: {} 行", data.size());
-
-            // 不调用workbook.close()，让GC自动处理，避免POI的保存问题
-            log.debug("跳过workbook.close()以避免POI保存问题");
 
         } catch (Exception e) {
             log.error("读取Excel文件失败: {}", file.getAbsolutePath(), e);
@@ -755,6 +704,62 @@ public class DataSourceServiceImpl implements IDataSourceService {
 
         return data;
     }
+
+    /**
+     * 获取单元格值作为字符串
+     */
+    private String getCellValueAsString(Cell cell) {
+        if (cell == null) return "";
+
+        switch (cell.getCellType()) {
+            case STRING:
+                return cell.getStringCellValue();
+            case NUMERIC:
+                return String.valueOf(cell.getNumericCellValue());
+            case BOOLEAN:
+                return String.valueOf(cell.getBooleanCellValue());
+            case FORMULA:
+                try {
+                    return String.valueOf(cell.getNumericCellValue());
+                } catch (Exception e) {
+                    return cell.getStringCellValue();
+                }
+            default:
+                return "";
+        }
+    }
+
+    /**
+     * 获取单元格值
+     */
+    private Object getCellValue(Cell cell) {
+        if (cell == null) return null;
+
+        switch (cell.getCellType()) {
+            case NUMERIC:
+                return cell.getNumericCellValue();
+            case STRING:
+                String stringValue = cell.getStringCellValue();
+                // 尝试转换为数字
+                try {
+                    return Double.parseDouble(stringValue);
+                } catch (NumberFormatException e) {
+                    return stringValue;
+                }
+            case BOOLEAN:
+                return cell.getBooleanCellValue();
+            case FORMULA:
+                try {
+                    return cell.getNumericCellValue();
+                } catch (Exception e) {
+                    return cell.getStringCellValue();
+                }
+            default:
+                return null;
+        }
+    }
+
+
 
     /**
      * 转换为绝对路径

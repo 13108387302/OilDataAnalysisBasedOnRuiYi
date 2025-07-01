@@ -28,7 +28,7 @@ import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.common.utils.poi.ExcelUtil;
 import com.ruoyi.petrol.domain.PetrolDataset;
 import com.ruoyi.petrol.service.IPetrolDatasetService;
-import com.ruoyi.petrol.service.CacheService;
+
 
 /**
  * 数据集管理Controller
@@ -45,8 +45,7 @@ public class PetrolDatasetController extends BaseController
     @Autowired
     private IPetrolDatasetService petrolDatasetService;
 
-    @Autowired
-    private CacheService cacheService;
+
 
     @Autowired
     private CacheManager cacheManager;
@@ -66,8 +65,7 @@ public class PetrolDatasetController extends BaseController
                 cacheManager.getCache("dataset").clear();
             }
 
-            // 清理自定义缓存服务
-            cacheService.clearDatasetCache();
+            // 自定义缓存服务已移除，使用Spring Cache Manager统一管理
 
             log.info("✅ 数据集缓存已清除");
             return success("缓存清除成功");
