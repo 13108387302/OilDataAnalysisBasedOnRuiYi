@@ -1,9 +1,7 @@
 package com.ruoyi.petrol.service;
 
 import com.ruoyi.petrol.domain.AnalysisTask;
-import com.ruoyi.petrol.domain.dto.FileAnalysisResult;
 import com.ruoyi.petrol.domain.dto.AnalysisTaskUpdateDTO;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -77,10 +75,5 @@ public interface IAnalysisTaskService
      */
     AnalysisTask submitAnalysisTask(AnalysisTask analysisTask);
 
-    /**
-     * 从上传的文件中解析数据，提取文件头和数值列的统计信息
-     * @param file 用户上传的文件
-     * @return 文件分析结果，包含头和统计数据
-     */
-    FileAnalysisResult analyzeFile(MultipartFile file);
+
 } 

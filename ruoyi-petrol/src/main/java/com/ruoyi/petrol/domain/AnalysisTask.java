@@ -54,9 +54,55 @@ public class AnalysisTask extends BaseEntity
     /** 原始文件头 (JSON Array) */
     private String inputFileHeadersJson;
 
-    /** 用户ID */
-    private Long userId;
+    /** 关联数据集ID */
+    private Long datasetId;
+
+    /** 数据集名称 */
+    private String datasetName;
 
     /** 部门ID */
     private Long deptId;
-} 
+
+    // 手动添加getter/setter方法以确保编译通过
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+
+    public String getTaskName() { return taskName; }
+    public void setTaskName(String taskName) { this.taskName = taskName; }
+
+    public String getAlgorithm() { return algorithm; }
+    public void setAlgorithm(String algorithm) { this.algorithm = algorithm; }
+
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+
+    public String getInputFilePath() { return inputFilePath; }
+    public void setInputFilePath(String inputFilePath) { this.inputFilePath = inputFilePath; }
+
+    public String getInputParamsJson() { return inputParamsJson; }
+    public void setInputParamsJson(String inputParamsJson) { this.inputParamsJson = inputParamsJson; }
+
+    public String getOutputDirPath() { return outputDirPath; }
+    public void setOutputDirPath(String outputDirPath) { this.outputDirPath = outputDirPath; }
+
+    public String getResultsJson() { return resultsJson; }
+    public void setResultsJson(String resultsJson) { this.resultsJson = resultsJson; }
+
+    public String getErrorMessage() { return errorMessage; }
+    public void setErrorMessage(String errorMessage) { this.errorMessage = errorMessage; }
+
+    public String getInputFileHeadersJson() { return inputFileHeadersJson; }
+    public void setInputFileHeadersJson(String inputFileHeadersJson) { this.inputFileHeadersJson = inputFileHeadersJson; }
+
+    public Long getDatasetId() { return datasetId; }
+    public void setDatasetId(Long datasetId) { this.datasetId = datasetId; }
+
+    public String getDatasetName() { return datasetName; }
+    public void setDatasetName(String datasetName) { this.datasetName = datasetName; }
+
+    public Long getDeptId() { return deptId; }
+    public void setDeptId(Long deptId) { this.deptId = deptId; }
+
+    public Integer getProgress() { return progress; }
+    public void setProgress(Integer progress) { this.progress = progress; }
+}

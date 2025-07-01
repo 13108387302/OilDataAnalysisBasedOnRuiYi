@@ -87,25 +87,25 @@
         <el-tab-pane label="📋 数据预览" name="preview">
           <DataPreview
             :source-id="selectedSource.id"
-            :source-type="selectedSource.sourceType" />
+            :source-type="selectedSource.sourceType || 'dataset'" />
         </el-tab-pane>
 
         <el-tab-pane label="📊 统计分析" name="statistics">
           <StatisticsAnalysis
             :source-id="selectedSource.id"
-            :source-type="selectedSource.sourceType" />
+            :source-type="selectedSource.sourceType || 'dataset'" />
         </el-tab-pane>
 
         <el-tab-pane label="📈 石油曲线" name="curves">
           <PetroleumCurves
             :source-id="selectedSource.id"
-            :source-type="selectedSource.sourceType" />
+            :source-type="selectedSource.sourceType || 'dataset'" />
         </el-tab-pane>
 
         <el-tab-pane label="🔗 相关性分析" name="correlation">
           <CorrelationAnalysis
             :source-id="selectedSource.id"
-            :source-type="selectedSource.sourceType" />
+            :source-type="selectedSource.sourceType || 'dataset'" />
         </el-tab-pane>
 
         <!-- 分析结果可视化 - 仅对分析任务显示 -->
@@ -150,23 +150,13 @@
             <TaskResults
               v-else
               :source-id="selectedSource.id"
-              :source-type="selectedSource.sourceType" />
+              :source-type="selectedSource.sourceType || 'task'" />
           </div>
         </el-tab-pane>
       </el-tabs>
     </el-card>
 
-    <!-- 强制显示的测试内容 -->
-    <el-card class="test-card" shadow="never" style="background: #f0f9ff; border: 2px solid #409eff;">
-      <div slot="header">
-        <span>🧪 强制显示测试</span>
-      </div>
-      <p style="color: red; font-size: 18px;">如果你能看到这个蓝色卡片，说明Vue组件正常工作！</p>
-      <p>当前时间: {{ new Date().toLocaleString() }}</p>
-      <p>selectedSource: {{ selectedSource ? selectedSource.name : 'null' }}</p>
-      <p>dataSources数量: {{ dataSources.length }}</p>
-      <el-button @click="forceSelectFirst" type="primary">强制选择第一个数据源</el-button>
-    </el-card>
+
 
     <!-- 空状态 -->
     <el-empty
@@ -323,18 +313,7 @@ export default {
 
 
 
-    /** 强制选择第一个数据源 */
-    forceSelectFirst() {
-      console.log('🔧 强制选择第一个数据源');
-      console.log('🔧 当前dataSources:', this.dataSources);
-      if (this.dataSources.length > 0) {
-        this.selectDataSource(this.dataSources[0]);
-        this.$message.success('已强制选择第一个数据源');
-      } else {
-        this.$message.warning('没有可用的数据源');
-        this.loadDataSources(); // 重新加载
-      }
-    },
+
 
     /** 获取状态类型 */
     getStatusType(status) {

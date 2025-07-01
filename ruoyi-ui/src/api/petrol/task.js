@@ -46,16 +46,4 @@ export function delTask(taskId) {
   })
 }
 
-// 上传文件并分析，返回文件头
-export function analyzeFile(file) {
-  const formData = new FormData();
-  formData.append('file', file);
-  return request({
-    url: '/petrol/task/analyzeFile',
-    method: 'post',
-    data: formData,
-    headers: {
-      'Content-Type': 'multipart/form-data'
-    }
-  });
-}
+

@@ -24,4 +24,5 @@ app.include_router(analysis.router, prefix="/api/v1", tags=["Analysis Tasks"])
 if __name__ == "__main__":
     # 这个部分允许我们像运行普通 Python 脚本一样直接启动服务，方便调试
     # 在生产环境中，我们会使用 uvicorn 命令来启动
-    uvicorn.run(app, host="0.0.0.0", port=5000)
+    # 🔧 修复：修改端口为8000以匹配Java后端配置
+    uvicorn.run(app, host="0.0.0.0", port=8000)

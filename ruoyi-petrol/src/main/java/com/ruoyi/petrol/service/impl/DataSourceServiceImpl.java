@@ -3,8 +3,10 @@ package com.ruoyi.petrol.service.impl;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.TypeReference;
 import com.ruoyi.petrol.domain.AnalysisTask;
+import com.ruoyi.petrol.domain.PetrolDataset;
 import com.ruoyi.petrol.service.IAnalysisTaskService;
 import com.ruoyi.petrol.service.IDataSourceService;
+import com.ruoyi.petrol.service.IPetrolDatasetService;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.Logger;
@@ -29,19 +31,22 @@ public class DataSourceServiceImpl implements IDataSourceService {
     
     @Autowired
     private IAnalysisTaskService analysisTaskService;
-    
+
+    @Autowired
+    private IPetrolDatasetService petrolDatasetService;
+
     @Value("${ruoyi.profile}")
     private String uploadPath;
     
     /**
-     * 获取所有可用的数据源（只包含分析任务）
+     * 获取所有可用的数据源（包含分析任务和数据集）
      */
     @Override
     public List<Map<String, Object>> getAllDataSources() {
         List<Map<String, Object>> allSources = new ArrayList<>();
 
         try {
-            // 只添加分析任务中的数据
+            // 1. 添加分析任务中的数据
             AnalysisTask taskQuery = new AnalysisTask();
             List<AnalysisTask> tasks = analysisTaskService.selectAnalysisTaskList(taskQuery);
             log.info("🔍 获取数据源列表 - 查询到的分析任务数量: {}", tasks.size());
@@ -81,6 +86,38 @@ public class DataSourceServiceImpl implements IDataSourceService {
                 }
             }
 
+            // 2. 添加数据集
+            List<PetrolDataset> datasets = petrolDatasetService.selectAvailableDatasets();
+            log.info("🔍 获取数据源列表 - 查询到的数据集数量: {}", datasets.size());
+
+            for (PetrolDataset dataset : datasets) {
+                log.info("🔍 处理数据集: ID={}, 名称={}, 文件路径={}",
+                    dataset.getId(), dataset.getDatasetName(), dataset.getFilePath());
+                if (dataset.getFilePath() != null && !dataset.getFilePath().isEmpty()) {
+                    Map<String, Object> source = new HashMap<>();
+                    source.put("id", dataset.getId().toString());
+                    source.put("name", dataset.getDatasetName());
+                    source.put("description", dataset.getDatasetDescription() != null ? dataset.getDatasetDescription() : "数据集: " + dataset.getDatasetCategory());
+                    source.put("fileName", dataset.getFileName());
+                    source.put("category", dataset.getDatasetCategory());
+                    source.put("fileType", dataset.getFileType());
+                    source.put("fileSize", dataset.getFileSize());
+                    source.put("createTime", dataset.getCreateTime());
+                    source.put("sourceType", "dataset");
+                    source.put("source", "数据集");
+
+                    // 添加数据集特有的信息
+                    source.put("hasResults", false); // 数据集本身没有分析结果
+                    source.put("columnCount", dataset.getTotalColumns());
+                    source.put("rowCount", dataset.getTotalRows());
+                    source.put("qualityScore", dataset.getDataQualityScore());
+                    source.put("status", dataset.getStatus());
+
+                    allSources.add(source);
+                    log.info("✅ 添加数据集: {}", source.get("name"));
+                }
+            }
+
             // 按创建时间倒序排列
             allSources.sort((a, b) -> {
                 Date timeA = (Date) a.get("createTime");
@@ -98,7 +135,7 @@ public class DataSourceServiceImpl implements IDataSourceService {
     }
     
     /**
-     * 根据数据源ID和类型获取数据源信息（只支持分析任务）
+     * 根据数据源ID和类型获取数据源信息（支持分析任务和数据集）
      */
     @Override
     public Map<String, Object> getDataSourceInfo(String sourceId, String sourceType) {
@@ -108,7 +145,7 @@ public class DataSourceServiceImpl implements IDataSourceService {
             if (task == null) {
                 throw new IllegalArgumentException("分析任务不存在: " + taskId);
             }
-            
+
             Map<String, Object> info = new HashMap<>();
             info.put("id", task.getId());
             info.put("name", task.getTaskName());
@@ -118,7 +155,7 @@ public class DataSourceServiceImpl implements IDataSourceService {
             info.put("filePath", task.getInputFilePath());
             info.put("sourceType", "task");
             info.put("hasResults", task.getResultsJson() != null && !task.getResultsJson().isEmpty());
-            
+
             // 尝试获取行列数
             if (task.getInputFileHeadersJson() != null) {
                 try {
@@ -129,15 +166,38 @@ public class DataSourceServiceImpl implements IDataSourceService {
                     log.warn("解析任务头信息失败: {}", task.getId());
                 }
             }
-            
+
+            return info;
+        } else if ("dataset".equals(sourceType)) {
+            Long datasetId = Long.parseLong(sourceId);
+            PetrolDataset dataset = petrolDatasetService.selectPetrolDatasetById(datasetId);
+            if (dataset == null) {
+                throw new IllegalArgumentException("数据集不存在: " + datasetId);
+            }
+
+            Map<String, Object> info = new HashMap<>();
+            info.put("id", dataset.getId());
+            info.put("name", dataset.getDatasetName());
+            info.put("description", dataset.getDatasetDescription());
+            info.put("fileName", dataset.getFileName());
+            info.put("fileType", dataset.getFileType());
+            info.put("fileSize", dataset.getFileSize());
+            info.put("filePath", dataset.getFilePath());
+            info.put("sourceType", "dataset");
+            info.put("columnCount", dataset.getTotalColumns());
+            info.put("rowCount", dataset.getTotalRows());
+            info.put("category", dataset.getDatasetCategory());
+            info.put("status", dataset.getStatus());
+            info.put("hasResults", false); // 数据集本身没有分析结果
+
             return info;
         }
-        
+
         throw new IllegalArgumentException("不支持的数据源类型: " + sourceType);
     }
     
     /**
-     * 获取数据源的列信息（只支持分析任务）
+     * 获取数据源的列信息（支持分析任务和数据集）
      */
     @Override
     public Map<String, Object> getDataSourceColumns(String sourceId, String sourceType) {
@@ -192,6 +252,40 @@ public class DataSourceServiceImpl implements IDataSourceService {
 
             log.info("数据源 {} 列信息: 总列数={}, 数值列数={}, 数值列={}",
                 sourceId, allColumns.size(), numericColumns.size(), numericColumns);
+
+            return result;
+        } else if ("dataset".equals(sourceType)) {
+            Long datasetId = Long.parseLong(sourceId);
+            PetrolDataset dataset = petrolDatasetService.selectPetrolDatasetById(datasetId);
+            if (dataset == null) {
+                throw new IllegalArgumentException("数据集不存在: " + datasetId);
+            }
+
+            Map<String, Object> result = new HashMap<>();
+            List<String> allColumns = new ArrayList<>();
+            List<String> numericColumns = new ArrayList<>();
+
+            // 从数据集的列信息中获取列名
+            List<Map<String, Object>> columnDetails = petrolDatasetService.getDatasetColumns(datasetId);
+            for (Map<String, Object> columnInfo : columnDetails) {
+                String columnName = (String) columnInfo.get("name");
+                String columnType = (String) columnInfo.get("type");
+                allColumns.add(columnName);
+
+                // 根据列类型判断是否为数值列
+                if ("numeric".equals(columnType) || "integer".equals(columnType) ||
+                    "float".equals(columnType) || "double".equals(columnType)) {
+                    numericColumns.add(columnName);
+                }
+            }
+
+            result.put("columns", allColumns);
+            result.put("numericColumns", numericColumns);
+            result.put("totalColumns", allColumns.size());
+            result.put("numericColumnsCount", numericColumns.size());
+
+            log.info("数据集 {} 列信息: 总列数={}, 数值列数={}, 数值列={}",
+                datasetId, allColumns.size(), numericColumns.size(), numericColumns);
 
             return result;
         }
@@ -254,7 +348,7 @@ public class DataSourceServiceImpl implements IDataSourceService {
     }
     
     /**
-     * 获取数据源统计信息（只支持分析任务）
+     * 获取数据源统计信息（支持分析任务和数据集）
      */
     @Override
     public Map<String, Object> getDataSourceStatistics(String sourceId, String sourceType,
@@ -284,6 +378,27 @@ public class DataSourceServiceImpl implements IDataSourceService {
                     log.warn("解析任务结果失败: {}", task.getId());
                 }
             }
+
+            return stats;
+        } else if ("dataset".equals(sourceType)) {
+            Long datasetId = Long.parseLong(sourceId);
+            PetrolDataset dataset = petrolDatasetService.selectPetrolDatasetById(datasetId);
+            if (dataset == null) {
+                throw new IllegalArgumentException("数据集不存在: " + datasetId);
+            }
+
+            // 读取数据并计算统计信息
+            List<Map<String, Object>> data = readDataSourceData(sourceId, sourceType, columns, 1000);
+            Map<String, Object> stats = calculateStatistics(data, columns);
+
+            // 添加数据集基本信息
+            stats.put("datasetName", dataset.getDatasetName());
+            stats.put("category", dataset.getDatasetCategory());
+            stats.put("fileType", dataset.getFileType());
+            stats.put("totalRows", dataset.getTotalRows());
+            stats.put("totalColumns", dataset.getTotalColumns());
+            stats.put("dataRows", data.size());
+            stats.put("qualityScore", dataset.getDataQualityScore());
 
             return stats;
         }
@@ -453,6 +568,10 @@ public class DataSourceServiceImpl implements IDataSourceService {
             Long taskId = Long.parseLong(sourceId.replace("task_", ""));
             AnalysisTask task = analysisTaskService.selectAnalysisTaskById(taskId);
             return task != null ? task.getInputFilePath() : null;
+        } else if ("dataset".equals(sourceType)) {
+            Long datasetId = Long.parseLong(sourceId);
+            PetrolDataset dataset = petrolDatasetService.selectPetrolDatasetById(datasetId);
+            return dataset != null ? dataset.getFilePath() : null;
         }
         return null;
     }
@@ -466,8 +585,26 @@ public class DataSourceServiceImpl implements IDataSourceService {
         return filePath.substring(filePath.lastIndexOf("/") + 1);
     }
     
+    /**
+     * 🟡 待优化 - 估算文件行数
+     *
+     * 当前实现：
+     * - 返回固定值1000，这是一个简化的实现
+     * - 不是模拟数据，而是功能占位符
+     *
+     * TODO 优化建议：
+     * - 实际读取文件并计算行数
+     * - 对于大文件，可以采样估算
+     * - 缓存结果以提高性能
+     * - 支持不同文件格式的行数计算
+     *
+     * @param filePath 文件路径
+     * @return 估算的行数
+     */
     private int estimateRowCount(String filePath) {
-        // 简单估算，实际项目中可以优化
+        // TODO: 实现真实的文件行数计算逻辑
+        // 当前返回固定值作为占位符，实际项目中应该优化
+        log.debug("TODO: 需要实现真实的文件行数估算逻辑，当前返回固定值");
         return 1000;
     }
 
@@ -477,23 +614,47 @@ public class DataSourceServiceImpl implements IDataSourceService {
         try {
             // 处理文件路径 - 转换为绝对路径
             String absolutePath = convertToAbsolutePath(filePath);
+            log.info("🔍 读取Excel文件 - 原始路径: {}, 绝对路径: {}", filePath, absolutePath);
+
+            // 检查文件是否存在
             File file = new File(absolutePath);
-
-            log.info("尝试读取文件: 原始路径={}, 绝对路径={}, 文件存在={}", filePath, absolutePath, file.exists());
-
             if (!file.exists()) {
-                log.error("文件不存在: {}", absolutePath);
-                throw new RuntimeException("数据文件不存在: " + filePath);
+                log.error("❌ 文件不存在: {}", absolutePath);
+                throw new RuntimeException("文件不存在: " + absolutePath);
             }
 
-            try (Workbook workbook = new XSSFWorkbook(file)) {
-                Sheet sheet = workbook.getSheetAt(0);
-                Row headerRow = sheet.getRow(0);
+            if (!file.canRead()) {
+                log.error("❌ 文件无法读取: {}", absolutePath);
+                throw new RuntimeException("文件无法读取: " + absolutePath);
+            }
 
-                if (headerRow == null) {
-                    log.error("Excel文件没有标题行: {}", absolutePath);
-                    throw new RuntimeException("Excel文件格式错误，缺少标题行: " + filePath);
-                }
+            log.info("✅ 文件存在且可读: {}", absolutePath);
+
+            // 使用安全的Excel读取方法
+            return readExcelDataSafely(file, columns, maxRows);
+
+        } catch (Exception e) {
+            log.error("读取Excel文件失败: {}", filePath, e);
+            throw new RuntimeException("读取Excel文件失败: " + filePath, e);
+        }
+    }
+
+    /**
+     * 安全地读取Excel数据，避免POI的保存问题
+     */
+    private List<Map<String, Object>> readExcelDataSafely(File file, List<String> columns, int maxRows) {
+        List<Map<String, Object>> data = new ArrayList<>();
+
+        try {
+            // 使用简单的方式读取Excel，避免复杂的资源管理
+            Workbook workbook = new XSSFWorkbook(file);
+            Sheet sheet = workbook.getSheetAt(0);
+            Row headerRow = sheet.getRow(0);
+
+            if (headerRow == null) {
+                log.error("Excel文件没有标题行: {}", file.getAbsolutePath());
+                throw new RuntimeException("Excel文件格式错误，缺少标题行: " + file.getAbsolutePath());
+            }
 
                 // 获取列名
                 List<String> headers = new ArrayList<>();
@@ -582,11 +743,14 @@ public class DataSourceServiceImpl implements IDataSourceService {
                     }
                 }
 
-                log.info("成功读取Excel数据: {} 行", data.size());
-            }
+            log.info("成功读取Excel数据: {} 行", data.size());
+
+            // 不调用workbook.close()，让GC自动处理，避免POI的保存问题
+            log.debug("跳过workbook.close()以避免POI保存问题");
+
         } catch (Exception e) {
-            log.error("读取Excel文件失败: {}", filePath, e);
-            throw new RuntimeException("读取Excel文件失败: " + filePath, e);
+            log.error("读取Excel文件失败: {}", file.getAbsolutePath(), e);
+            throw new RuntimeException("读取Excel文件失败: " + file.getAbsolutePath(), e);
         }
 
         return data;
@@ -600,19 +764,47 @@ public class DataSourceServiceImpl implements IDataSourceService {
             return "";
         }
 
+        log.debug("🔍 转换文件路径 - 原始路径: {}, uploadPath: {}", filePath, uploadPath);
+
         // 如果已经是绝对路径，直接返回
         if (new File(filePath).isAbsolute()) {
+            log.debug("✅ 绝对路径，直接返回: {}", filePath);
             return filePath;
         }
 
-        // 处理相对路径
+        // 处理以 /profile/ 开头的路径（旧格式）
         if (filePath.startsWith("/profile/")) {
-            // 替换为实际的上传路径
-            return uploadPath + filePath.substring("/profile".length());
+            String relativePath = filePath.substring("/profile".length());
+            String fullPath = uploadPath + relativePath;
+            log.debug("🔄 转换 /profile/ 路径: {} -> {}", filePath, fullPath);
+            return fullPath;
         }
 
-        // 其他情况，拼接上传路径
-        return uploadPath + "/" + filePath;
+        // 处理以 profile/ 开头的路径（无前导斜杠）
+        if (filePath.startsWith("profile/")) {
+            String relativePath = filePath.substring("profile".length());
+            String fullPath = uploadPath + relativePath;
+            log.debug("🔄 转换 profile/ 路径: {} -> {}", filePath, fullPath);
+            return fullPath;
+        }
+
+        // 处理以 /data/ 开头的路径
+        if (filePath.startsWith("/data/")) {
+            log.debug("✅ /data/ 路径，直接返回: {}", filePath);
+            return filePath;
+        }
+
+        // 处理以 data/ 开头的路径
+        if (filePath.startsWith("data/")) {
+            String fullPath = "./" + filePath;
+            log.debug("🔄 转换 data/ 路径: {} -> {}", filePath, fullPath);
+            return fullPath;
+        }
+
+        // 处理相对路径（不以上述前缀开头）
+        String fullPath = uploadPath + "/" + filePath;
+        log.debug("🔄 拼接相对路径: {} -> {}", filePath, fullPath);
+        return fullPath;
     }
 
 

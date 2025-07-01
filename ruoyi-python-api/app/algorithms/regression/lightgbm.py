@@ -1,5 +1,6 @@
 # app/algorithms/regression/lightgbm.py
 import pandas as pd
+import numpy as np
 import lightgbm as lgb
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
@@ -18,6 +19,7 @@ matplotlib.use('Agg')
 from app.algorithms.base_algorithm import BaseAlgorithm
 from app.visualizations.plot_factory import plot_regression
 from app.algorithms.base_predictor import BasePredictorAlgorithm
+from app.utils.data_cleaner import clean_regression_data, validate_data_for_ml
 # --- 修复结束 ---
 
 class Trainer(BaseAlgorithm):
@@ -49,9 +51,32 @@ class Trainer(BaseAlgorithm):
         n_estimators = int(self.params.get('n_estimators', 100))
         learning_rate = float(self.params.get('learning_rate', 0.1))
 
-        # Prepare data
-        X = dataframe[feature_cols].values
-        y = dataframe[target_col].values
+        # Handle max_depth parameter
+        max_depth = self.params.get('max_depth')
+        if max_depth and max_depth != 'None':
+            max_depth = int(max_depth)
+        else:
+            max_depth = -1  # LightGBM default for unlimited depth
+
+        # Handle num_leaves parameter
+        num_leaves = self.params.get('num_leaves')
+        if num_leaves and num_leaves != 'None':
+            num_leaves = int(num_leaves)
+        else:
+            num_leaves = 31  # LightGBM default
+
+        # 使用数据清理工具清理数据
+        combined_df, X_df, y_series = clean_regression_data(
+            dataframe, feature_cols, target_col,
+            remove_outliers=True, outlier_percentile=99.9
+        )
+
+        # 转换为numpy数组
+        X = X_df.values
+        y = y_series.values
+
+        # 验证数据质量
+        validate_data_for_ml(X, y)
         
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, test_size=test_size, random_state=random_state
@@ -62,6 +87,8 @@ class Trainer(BaseAlgorithm):
             objective='regression',
             n_estimators=n_estimators,
             learning_rate=learning_rate,
+            max_depth=max_depth,
+            num_leaves=num_leaves,
             random_state=random_state,
             n_jobs=-1
         )
@@ -91,6 +118,8 @@ class Trainer(BaseAlgorithm):
             "model_params": {
                 "n_estimators": int(n_estimators),
                 "learning_rate": float(learning_rate),
+                "max_depth": int(max_depth) if max_depth != -1 else None,
+                "num_leaves": int(num_leaves),
                 "feature_columns": feature_cols,
                 "target_column": target_col
             },

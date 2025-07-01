@@ -129,7 +129,7 @@ public class SysRoleController extends BaseController
         if (roleService.updateRole(role) > 0)
         {
             // 更新缓存用户权限
-            LoginUser loginUser = getLoginUser();
+            com.ruoyi.common.core.domain.model.LoginUser loginUser = getLoginUser();
             if (StringUtils.isNotNull(loginUser.getUser()) && !loginUser.getUser().isAdmin())
             {
                 loginUser.setUser(userService.selectUserByUserName(loginUser.getUser().getUserName()));
@@ -194,10 +194,10 @@ public class SysRoleController extends BaseController
      */
     @PreAuthorize("@ss.hasPermi('system:role:list')")
     @GetMapping("/authUser/allocatedList")
-    public TableDataInfo allocatedList(SysUser user)
+    public TableDataInfo allocatedList(com.ruoyi.common.core.domain.entity.SysUser user)
     {
         startPage();
-        List<SysUser> list = userService.selectAllocatedList(user);
+        List<com.ruoyi.common.core.domain.entity.SysUser> list = userService.selectAllocatedList(user);
         return getDataTable(list);
     }
 
@@ -206,10 +206,10 @@ public class SysRoleController extends BaseController
      */
     @PreAuthorize("@ss.hasPermi('system:role:list')")
     @GetMapping("/authUser/unallocatedList")
-    public TableDataInfo unallocatedList(SysUser user)
+    public TableDataInfo unallocatedList(com.ruoyi.common.core.domain.entity.SysUser user)
     {
         startPage();
-        List<SysUser> list = userService.selectUnallocatedList(user);
+        List<com.ruoyi.common.core.domain.entity.SysUser> list = userService.selectUnallocatedList(user);
         return getDataTable(list);
     }
 
@@ -256,7 +256,7 @@ public class SysRoleController extends BaseController
     {
         AjaxResult ajax = AjaxResult.success();
         ajax.put("checkedKeys", deptService.selectDeptListByRoleId(roleId));
-        ajax.put("depts", deptService.selectDeptTreeList(new SysDept()));
+        ajax.put("depts", deptService.selectDeptTreeList(new com.ruoyi.common.core.domain.entity.SysDept()));
         return ajax;
     }
 }

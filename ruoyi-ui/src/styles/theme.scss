@@ -1,0 +1,296 @@
+/**
+ * 石油预测系统主题配置
+ * 统一的颜色、字体、间距等设计规范
+ */
+
+// ===== 主色调 =====
+$primary-color: #1890ff;
+$primary-light: #40a9ff;
+$primary-dark: #096dd9;
+
+// 石油行业特色色彩
+$oil-primary: #2c5aa0;      // 石油蓝
+$oil-secondary: #f4a261;    // 石油金
+$oil-accent: #e76f51;       // 石油橙
+$oil-success: #2a9d8f;      // 成功绿
+$oil-warning: #e9c46a;      // 警告黄
+$oil-danger: #e63946;       // 危险红
+
+// ===== 功能色彩 =====
+$success-color: #52c41a;
+$warning-color: #faad14;
+$error-color: #f5222d;
+$info-color: #1890ff;
+
+// ===== 中性色彩 =====
+$text-primary: #262626;
+$text-secondary: #595959;
+$text-tertiary: #8c8c8c;
+$text-disabled: #bfbfbf;
+
+$bg-primary: #ffffff;
+$bg-secondary: #fafafa;
+$bg-tertiary: #f5f5f5;
+$bg-disabled: #f5f5f5;
+
+$border-primary: #d9d9d9;
+$border-secondary: #f0f0f0;
+
+// ===== 字体 =====
+$font-family-primary: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+$font-family-code: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+
+$font-size-xs: 12px;
+$font-size-sm: 14px;
+$font-size-base: 16px;
+$font-size-lg: 18px;
+$font-size-xl: 20px;
+$font-size-xxl: 24px;
+
+$font-weight-light: 300;
+$font-weight-normal: 400;
+$font-weight-medium: 500;
+$font-weight-bold: 600;
+
+// ===== 间距 =====
+$spacing-xs: 4px;
+$spacing-sm: 8px;
+$spacing-base: 16px;
+$spacing-lg: 24px;
+$spacing-xl: 32px;
+$spacing-xxl: 48px;
+
+// ===== 圆角 =====
+$border-radius-sm: 2px;
+$border-radius-base: 4px;
+$border-radius-lg: 8px;
+$border-radius-xl: 12px;
+
+// ===== 阴影 =====
+$shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
+$shadow-base: 0 3px 6px rgba(0, 0, 0, 0.16), 0 3px 6px rgba(0, 0, 0, 0.23);
+$shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.19), 0 6px 6px rgba(0, 0, 0, 0.23);
+
+// ===== 动画 =====
+$transition-fast: 0.15s ease-in-out;
+$transition-base: 0.3s ease-in-out;
+$transition-slow: 0.5s ease-in-out;
+
+// ===== 断点 =====
+$breakpoint-xs: 480px;
+$breakpoint-sm: 768px;
+$breakpoint-md: 992px;
+$breakpoint-lg: 1200px;
+$breakpoint-xl: 1600px;
+
+// ===== 石油系统专用样式 =====
+
+// 数据集卡片
+.dataset-card {
+  border: 1px solid $border-secondary;
+  border-radius: $border-radius-lg;
+  padding: $spacing-lg;
+  background: $bg-primary;
+  box-shadow: $shadow-sm;
+  transition: all $transition-base;
+  
+  &:hover {
+    box-shadow: $shadow-base;
+    border-color: $oil-primary;
+  }
+  
+  .dataset-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: $spacing-base;
+    
+    .dataset-title {
+      font-size: $font-size-lg;
+      font-weight: $font-weight-medium;
+      color: $text-primary;
+    }
+    
+    .dataset-category {
+      padding: $spacing-xs $spacing-sm;
+      border-radius: $border-radius-base;
+      font-size: $font-size-xs;
+      font-weight: $font-weight-medium;
+      
+      &.category-well {
+        background: rgba($oil-primary, 0.1);
+        color: $oil-primary;
+      }
+      
+      &.category-seismic {
+        background: rgba($oil-success, 0.1);
+        color: $oil-success;
+      }
+      
+      &.category-production {
+        background: rgba($oil-warning, 0.1);
+        color: $oil-warning;
+      }
+      
+      &.category-geology {
+        background: rgba($oil-accent, 0.1);
+        color: $oil-accent;
+      }
+    }
+  }
+  
+  .dataset-stats {
+    display: flex;
+    gap: $spacing-lg;
+    margin-bottom: $spacing-base;
+    
+    .stat-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      
+      .stat-value {
+        font-size: $font-size-lg;
+        font-weight: $font-weight-bold;
+        color: $oil-primary;
+      }
+      
+      .stat-label {
+        font-size: $font-size-xs;
+        color: $text-secondary;
+        margin-top: $spacing-xs;
+      }
+    }
+  }
+}
+
+// 分析任务状态
+.task-status {
+  padding: $spacing-xs $spacing-sm;
+  border-radius: $border-radius-base;
+  font-size: $font-size-xs;
+  font-weight: $font-weight-medium;
+  
+  &.status-pending {
+    background: rgba($info-color, 0.1);
+    color: $info-color;
+  }
+  
+  &.status-running {
+    background: rgba($oil-primary, 0.1);
+    color: $oil-primary;
+  }
+  
+  &.status-completed {
+    background: rgba($success-color, 0.1);
+    color: $success-color;
+  }
+  
+  &.status-failed {
+    background: rgba($error-color, 0.1);
+    color: $error-color;
+  }
+  
+  &.status-cancelled {
+    background: rgba($warning-color, 0.1);
+    color: $warning-color;
+  }
+}
+
+// 模型卡片
+.model-card {
+  border: 1px solid $border-secondary;
+  border-radius: $border-radius-lg;
+  padding: $spacing-lg;
+  background: $bg-primary;
+  transition: all $transition-base;
+  
+  &:hover {
+    box-shadow: $shadow-base;
+  }
+  
+  .model-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: $spacing-base;
+    
+    .model-info {
+      .model-name {
+        font-size: $font-size-lg;
+        font-weight: $font-weight-medium;
+        color: $text-primary;
+        margin-bottom: $spacing-xs;
+      }
+      
+      .model-algorithm {
+        font-size: $font-size-sm;
+        color: $text-secondary;
+      }
+    }
+    
+    .model-accuracy {
+      text-align: right;
+      
+      .accuracy-value {
+        font-size: $font-size-xl;
+        font-weight: $font-weight-bold;
+        color: $oil-success;
+      }
+      
+      .accuracy-label {
+        font-size: $font-size-xs;
+        color: $text-secondary;
+      }
+    }
+  }
+}
+
+// 预测结果表格
+.prediction-table {
+  .prediction-value {
+    font-weight: $font-weight-medium;
+    color: $oil-primary;
+  }
+  
+  .confidence-value {
+    color: $oil-success;
+  }
+  
+  .high-confidence {
+    background: rgba($oil-success, 0.1);
+  }
+  
+  .medium-confidence {
+    background: rgba($oil-warning, 0.1);
+  }
+  
+  .low-confidence {
+    background: rgba($oil-accent, 0.1);
+  }
+}
+
+// 响应式设计
+@media (max-width: $breakpoint-md) {
+  .dataset-card,
+  .model-card {
+    padding: $spacing-base;
+    
+    .dataset-stats,
+    .model-header {
+      flex-direction: column;
+      gap: $spacing-sm;
+    }
+  }
+}
+
+// 暗色主题支持
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-primary: #1f1f1f;
+    --bg-secondary: #2d2d2d;
+    --text-primary: #ffffff;
+    --text-secondary: #b3b3b3;
+    --border-primary: #404040;
+  }
+}

@@ -50,50 +50,32 @@ export default {
     
     updateChart() {
       if (!this.chart) return;
-      
-      // 生成模拟分布数据
-      const bins = this.config.bins || 30;
-      const data = [];
-      const categories = [];
-      
-      // 生成正态分布数据
-      for (let i = 0; i < bins; i++) {
-        const x = i * 10;
-        const y = Math.exp(-Math.pow(x - 150, 2) / (2 * Math.pow(50, 2))) * 100;
-        data.push(y + Math.random() * 10);
-        categories.push(x.toString());
-      }
-      
+
+      // 显示需要真实数据的提示
       const option = {
         title: {
           text: '数据分布图',
-          left: 'center'
-        },
-        tooltip: {
-          trigger: 'axis',
-          axisPointer: {
-            type: 'shadow'
+          left: 'center',
+          top: '40%',
+          textStyle: {
+            fontSize: 18,
+            color: '#666'
           }
         },
-        xAxis: {
-          type: 'category',
-          data: categories,
-          name: '数值范围'
-        },
-        yAxis: {
-          type: 'value',
-          name: '频次'
-        },
-        series: [{
-          name: '频次分布',
-          type: 'bar',
-          data: data,
-          itemStyle: {
-            color: '#5470c6'
-          }
-        }]
+        graphic: {
+          elements: [{
+            type: 'text',
+            left: 'center',
+            top: '55%',
+            style: {
+              text: '请提供真实数据源以显示分布图',
+              fontSize: 14,
+              fill: '#999'
+            }
+          }]
+        }
       };
-      
+
       this.chart.setOption(option);
     }
   }

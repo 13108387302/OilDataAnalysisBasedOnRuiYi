@@ -209,12 +209,14 @@ export default {
   name: "DataPreview",
   props: {
     sourceId: {
-      type: String,
+      type: [String, Number],
       required: true
     },
     sourceType: {
       type: String,
-      required: true
+      required: true,
+      default: 'dataset',
+      validator: value => ['task', 'dataset'].includes(value)
     }
   },
   data() {
@@ -246,7 +248,12 @@ export default {
     /** 加载数据源信息 */
     async loadDataInfo() {
       try {
-        const response = await getDataSourceInfo(this.sourceId, this.sourceType);
+        // 确保sourceId是字符串类型，sourceType有默认值
+        const sourceId = String(this.sourceId);
+        const sourceType = this.sourceType || 'dataset';
+
+        console.log('加载数据源信息:', { sourceId, sourceType });
+        const response = await getDataSourceInfo(sourceId, sourceType);
         this.dataInfo = response.data || {};
       } catch (error) {
         console.error("加载数据源信息失败:", error);
@@ -257,7 +264,11 @@ export default {
     async loadColumns() {
       this.columnsLoading = true;
       try {
-        const response = await getDataSourceColumns(this.sourceId, this.sourceType);
+        // 确保sourceId是字符串类型，sourceType有默认值
+        const sourceId = String(this.sourceId);
+        const sourceType = this.sourceType || 'dataset';
+
+        const response = await getDataSourceColumns(sourceId, sourceType);
         const data = response.data || {};
         this.columns = data.columns || [];
         this.numericColumns = data.numericColumns || [];
@@ -274,10 +285,14 @@ export default {
     async loadPreviewData() {
       this.previewLoading = true;
       try {
+        // 确保sourceId是字符串类型，sourceType有默认值
+        const sourceId = String(this.sourceId);
+        const sourceType = this.sourceType || 'dataset';
+
         const params = {
           maxRows: this.maxRows
         };
-        const response = await readDataSourceData(this.sourceId, this.sourceType, params);
+        const response = await readDataSourceData(sourceId, sourceType, params);
         this.previewData = response.data || [];
       } catch (error) {
         this.$message.error("加载预览数据失败: " + error.message);

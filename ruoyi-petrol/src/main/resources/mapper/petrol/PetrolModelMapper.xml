@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.petrol.mapper.PetrolModelMapper">
+    
+    <resultMap type="PetrolModel" id="PetrolModelResult">
+        <result property="id"    column="id"    />
+        <result property="modelName"    column="model_name"    />
+        <result property="modelType"    column="model_type"    />
+        <result property="algorithm"    column="algorithm"    />
+        <result property="modelPath"    column="model_path"    />
+        <result property="description"    column="description"    />
+        <result property="inputFeatures"    column="input_features"    />
+        <result property="outputTarget"    column="output_target"    />
+        <result property="modelParams"    column="model_params"    />
+        <result property="trainingMetrics"    column="training_metrics"    />
+        <result property="sourceTaskId"    column="source_task_id"    />
+        <result property="status"    column="status"    />
+        <result property="isAvailable"    column="is_available"    />
+        <result property="fileSize"    column="file_size"    />
+        <result property="createdBy"    column="created_by"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateTime"    column="update_time"    />
+    </resultMap>
+
+    <sql id="selectPetrolModelVo">
+        select id, model_name, model_type, algorithm, model_path, description, input_features, output_target, model_params, training_metrics, source_task_id, status, is_available, file_size, created_by, create_time, update_time from petrol_model
+    </sql>
+
+    <select id="selectPetrolModelList" parameterType="PetrolModel" resultMap="PetrolModelResult">
+        <include refid="selectPetrolModelVo"/>
+        <where>  
+            <if test="modelName != null  and modelName != ''"> and model_name like concat('%', #{modelName}, '%')</if>
+            <if test="modelType != null  and modelType != ''"> and model_type = #{modelType}</if>
+            <if test="algorithm != null  and algorithm != ''"> and algorithm = #{algorithm}</if>
+            <if test="status != null  and status != ''"> and status = #{status}</if>
+            <if test="isAvailable != null  and isAvailable != ''"> and is_available = #{isAvailable}</if>
+            <if test="sourceTaskId != null "> and source_task_id = #{sourceTaskId}</if>
+            <if test="createdBy != null  and createdBy != ''"> and created_by = #{createdBy}</if>
+        </where>
+        order by create_time desc
+    </select>
+    
+    <select id="selectPetrolModelById" parameterType="Long" resultMap="PetrolModelResult">
+        <include refid="selectPetrolModelVo"/>
+        where id = #{id}
+    </select>
+
+    <select id="selectAvailableModels" parameterType="String" resultMap="PetrolModelResult">
+        <include refid="selectPetrolModelVo"/>
+        where is_available = 'Y' and status = 'ACTIVE'
+        <if test="modelType != null and modelType != ''">
+            and model_type = #{modelType}
+        </if>
+        order by create_time desc
+    </select>
+        
+    <insert id="insertPetrolModel" parameterType="PetrolModel" useGeneratedKeys="true" keyProperty="id">
+        insert into petrol_model
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="modelName != null and modelName != ''">model_name,</if>
+            <if test="modelType != null and modelType != ''">model_type,</if>
+            <if test="algorithm != null and algorithm != ''">algorithm,</if>
+            <if test="modelPath != null and modelPath != ''">model_path,</if>
+            <if test="description != null">description,</if>
+            <if test="inputFeatures != null">input_features,</if>
+            <if test="outputTarget != null">output_target,</if>
+            <if test="modelParams != null">model_params,</if>
+            <if test="trainingMetrics != null">training_metrics,</if>
+            <if test="sourceTaskId != null">source_task_id,</if>
+            <if test="status != null">status,</if>
+            <if test="isAvailable != null">is_available,</if>
+            <if test="fileSize != null">file_size,</if>
+            <if test="createdBy != null">created_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="modelName != null and modelName != ''">#{modelName},</if>
+            <if test="modelType != null and modelType != ''">#{modelType},</if>
+            <if test="algorithm != null and algorithm != ''">#{algorithm},</if>
+            <if test="modelPath != null and modelPath != ''">#{modelPath},</if>
+            <if test="description != null">#{description},</if>
+            <if test="inputFeatures != null">#{inputFeatures},</if>
+            <if test="outputTarget != null">#{outputTarget},</if>
+            <if test="modelParams != null">#{modelParams},</if>
+            <if test="trainingMetrics != null">#{trainingMetrics},</if>
+            <if test="sourceTaskId != null">#{sourceTaskId},</if>
+            <if test="status != null">#{status},</if>
+            <if test="isAvailable != null">#{isAvailable},</if>
+            <if test="fileSize != null">#{fileSize},</if>
+            <if test="createdBy != null">#{createdBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+         </trim>
+    </insert>
+
+    <update id="updatePetrolModel" parameterType="PetrolModel">
+        update petrol_model
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="modelName != null and modelName != ''">model_name = #{modelName},</if>
+            <if test="modelType != null and modelType != ''">model_type = #{modelType},</if>
+            <if test="algorithm != null and algorithm != ''">algorithm = #{algorithm},</if>
+            <if test="modelPath != null and modelPath != ''">model_path = #{modelPath},</if>
+            <if test="description != null">description = #{description},</if>
+            <if test="inputFeatures != null">input_features = #{inputFeatures},</if>
+            <if test="outputTarget != null">output_target = #{outputTarget},</if>
+            <if test="modelParams != null">model_params = #{modelParams},</if>
+            <if test="trainingMetrics != null">training_metrics = #{trainingMetrics},</if>
+            <if test="sourceTaskId != null">source_task_id = #{sourceTaskId},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="isAvailable != null">is_available = #{isAvailable},</if>
+            <if test="fileSize != null">file_size = #{fileSize},</if>
+            <if test="createdBy != null">created_by = #{createdBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deletePetrolModelById" parameterType="Long">
+        delete from petrol_model where id = #{id}
+    </delete>
+
+    <delete id="deletePetrolModelByIds" parameterType="String">
+        delete from petrol_model where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+    <!-- 根据任务ID查询模型 -->
+    <select id="selectModelsByTaskId" parameterType="Long" resultMap="PetrolModelResult">
+        <include refid="selectPetrolModelVo"/>
+        where source_task_id = #{taskId}
+        and status = 'ACTIVE'
+        order by create_time desc
+    </select>
+
+</mapper>

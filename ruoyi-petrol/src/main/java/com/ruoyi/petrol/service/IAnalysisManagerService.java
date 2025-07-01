@@ -14,4 +14,10 @@ public interface IAnalysisManagerService {
      * @param task 包含所有任务信息的实体
      */
     void processTask(AnalysisTask task);
-} 
+
+    /**
+     * 同步处理分析任务
+     * @param task 包含所有任务信息的实体
+     */
+    void processTaskSync(AnalysisTask task);
+}

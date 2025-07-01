@@ -3,35 +3,78 @@
     <!-- 添加状态监听器，这会打印Logback自身的启动和错误信息到控制台 -->
     <statusListener class="ch.qos.logback.core.status.OnConsoleStatusListener" />
 
-    <!-- 引用 Spring Boot 的默认配置 -->
-    <include resource="org/springframework/boot/logging/logback/base.xml"/>
+    <!-- 日志文件保存路径 (在项目根目录下的logs文件夹中) -->
+    <property name="LOG_PATH" value="E:/Code/RuoYi_/RuoYi-Vue/logs" />
 
-    <!-- 日志文件保存路径 (在项目根目录下的 logs 文件夹中) -->
-    <property name="LOG_PATH" value="${user.dir}/logs" />
+    <!-- 日志输出格式 -->
+    <property name="LOG_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n" />
 
-    <!--
-        文件日志输出配置 (FileAppender)
-        每次启动时会覆盖日志文件
-    -->
-    <appender name="FILE" class="ch.qos.logback.core.FileAppender">
-        <!-- 日志文件的路径和名称 -->
-        <file>${LOG_PATH}/java_app.log</file>
-        
-        <!-- 设置为 false，表示不追加，每次启动都覆盖 -->
-        <append>false</append>
-
-        <!-- 日志格式 -->
+    <!-- 控制台输出 -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n</pattern>
+            <pattern>${LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
         </encoder>
     </appender>
 
-    <!--
-        根 Logger 配置
-        将新的 FILE appender 添加到根 logger 中
-    -->
+    <!-- 应用日志文件输出 (覆盖模式) -->
+    <appender name="APP_FILE" class="ch.qos.logback.core.FileAppender">
+        <file>${LOG_PATH}/ruoyi-app.log</file>
+        <append>false</append>
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- 错误日志文件输出 (覆盖模式) -->
+    <appender name="ERROR_FILE" class="ch.qos.logback.core.FileAppender">
+        <file>${LOG_PATH}/ruoyi-error.log</file>
+        <append>false</append>
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>ERROR</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+    </appender>
+
+    <!-- 石油模块专用日志 (覆盖模式) -->
+    <appender name="PETROL_FILE" class="ch.qos.logback.core.FileAppender">
+        <file>${LOG_PATH}/petrol-module.log</file>
+        <append>false</append>
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- 系统模块日志级别控制 -->
+    <logger name="com.ruoyi" level="INFO" additivity="false">
+        <appender-ref ref="CONSOLE" />
+        <appender-ref ref="APP_FILE" />
+        <appender-ref ref="ERROR_FILE" />
+    </logger>
+
+    <!-- 石油模块专用日志 -->
+    <logger name="com.ruoyi.petrol" level="DEBUG" additivity="false">
+        <appender-ref ref="CONSOLE" />
+        <appender-ref ref="PETROL_FILE" />
+        <appender-ref ref="ERROR_FILE" />
+    </logger>
+
+    <!-- Spring日志级别控制 -->
+    <logger name="org.springframework" level="WARN" />
+    <logger name="org.mybatis" level="WARN" />
+
+    <!-- 根 Logger 配置 -->
     <root level="INFO">
-        <appender-ref ref="FILE" />
+        <appender-ref ref="CONSOLE" />
+        <appender-ref ref="APP_FILE" />
+        <appender-ref ref="ERROR_FILE" />
     </root>
 
-</configuration> 
+</configuration>

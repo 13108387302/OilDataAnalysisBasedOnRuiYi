@@ -6,7 +6,7 @@ import com.alibaba.druid.pool.DruidDataSource;
 
 /**
  * druid 配置属性
- * 
+ *
  * @author ruoyi
  */
 @Configuration
@@ -24,11 +24,8 @@ public class DruidProperties
     @Value("${spring.datasource.druid.maxWait}")
     private int maxWait;
 
-    @Value("${spring.datasource.druid.connectTimeout}")
-    private int connectTimeout;
-
-    @Value("${spring.datasource.druid.socketTimeout}")
-    private int socketTimeout;
+    // 注意：connectTimeout和socketTimeout在新版本Druid中已移除
+    // 可以通过数据库连接URL参数设置：?connectTimeout=60000&socketTimeout=60000
 
     @Value("${spring.datasource.druid.timeBetweenEvictionRunsMillis}")
     private int timeBetweenEvictionRunsMillis;
@@ -62,10 +59,10 @@ public class DruidProperties
         datasource.setMaxWait(maxWait);
         
         /** 配置驱动连接超时时间，检测数据库建立连接的超时时间，单位是毫秒 */
-        datasource.setConnectTimeout(connectTimeout);
-        
+        // 注意：新版本Druid中setConnectTimeout和setSocketTimeout方法已移除
+
         /** 配置网络超时时间，等待数据库操作完成的网络超时时间，单位是毫秒 */
-        datasource.setSocketTimeout(socketTimeout);
+        // 可以通过连接URL参数设置：connectTimeout和socketTimeout
 
         /** 配置间隔多久才进行一次检测，检测需要关闭的空闲连接，单位是毫秒 */
         datasource.setTimeBetweenEvictionRunsMillis(timeBetweenEvictionRunsMillis);

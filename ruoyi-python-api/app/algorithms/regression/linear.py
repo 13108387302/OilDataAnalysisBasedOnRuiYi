@@ -10,6 +10,7 @@ from joblib import dump, load
 from app.algorithms.base_algorithm import BaseAlgorithm
 from app.visualizations.plot_factory import plot_regression
 from app.algorithms.base_predictor import BasePredictorAlgorithm
+from app.utils.data_cleaner import clean_regression_data, validate_data_for_ml
 
 class Trainer(BaseAlgorithm):
     """
@@ -36,9 +37,18 @@ class Trainer(BaseAlgorithm):
         test_size = self.params.get('test_size', 0.2)
         random_state = self.params.get('random_state', 42)
 
-        # Prepare data
-        X = dataframe[[feature_col]].values
-        y = dataframe[target_col].values
+        # 使用数据清理工具清理数据
+        _, X_df, y_series = clean_regression_data(
+            dataframe, [feature_col], target_col,
+            remove_outliers=True, outlier_percentile=99.9
+        )
+
+        # 转换为numpy数组
+        X = X_df.values
+        y = y_series.values
+
+        # 验证数据质量
+        validate_data_for_ml(X, y)
         
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, test_size=test_size, random_state=random_state

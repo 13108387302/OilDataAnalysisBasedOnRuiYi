@@ -64,17 +64,60 @@ module.exports = {
         '@': resolve('src')
       }
     },
+    // 性能优化配置
+    optimization: {
+      // 模块合并优化
+      concatenateModules: true,
+      // 压缩配置
+      minimize: process.env.NODE_ENV === 'production',
+      // 分包策略优化
+      splitChunks: {
+        chunks: 'all',
+        minSize: 20000,
+        maxSize: 244000,
+        cacheGroups: {
+          vendor: {
+            name: 'chunk-vendors',
+            test: /[\\/]node_modules[\\/]/,
+            priority: 10,
+            chunks: 'initial'
+          },
+          elementUI: {
+            name: 'chunk-elementUI',
+            priority: 20,
+            test: /[\\/]node_modules[\\/]_?element-ui(.*)/
+          },
+          echarts: {
+            name: 'chunk-echarts',
+            priority: 20,
+            test: /[\\/]node_modules[\\/]_?echarts(.*)/
+          },
+          petrol: {
+            name: 'chunk-petrol',
+            priority: 15,
+            test: resolve('src/views/petrol'),
+            minChunks: 2,
+            reuseExistingChunk: true
+          }
+        }
+      }
+    },
     plugins: [
-      // http://doc.ruoyi.vip/ruoyi-vue/other/faq.html#使用gzip解压缩静态文件
+      // Gzip压缩优化
       new CompressionPlugin({
-        cache: false,                                  // 不启用文件缓存
-        test: /\.(js|css|html|jpe?g|png|gif|svg)?$/i,  // 压缩文件格式
-        filename: '[path][base].gz[query]',            // 压缩后的文件名
-        algorithm: 'gzip',                             // 使用gzip压缩
-        minRatio: 0.8,                                 // 压缩比例，小于 80% 的文件不会被压缩
-        deleteOriginalAssets: false                    // 压缩后删除原文件
+        test: /\.(js|css|html|svg)$/,
+        threshold: 8192,
+        minRatio: 0.8,
+        algorithm: 'gzip',
+        deleteOriginalAssets: false
       })
     ],
+    // 外部化依赖（CDN优化）
+    externals: process.env.NODE_ENV === 'production' ? {
+      'vue': 'Vue',
+      'element-ui': 'ELEMENT',
+      'axios': 'axios'
+    } : {}
   },
   chainWebpack(config) {
     config.plugins.delete('preload') // TODO: need test

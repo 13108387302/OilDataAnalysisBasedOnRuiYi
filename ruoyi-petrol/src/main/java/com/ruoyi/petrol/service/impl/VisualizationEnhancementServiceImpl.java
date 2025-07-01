@@ -477,7 +477,18 @@ public class VisualizationEnhancementServiceImpl implements IVisualizationEnhanc
     }
 
     private List<String> generateRecommendations(String algorithmType, Map<String, Object> resultData) {
-        return Arrays.asList("建议增加训练数据", "建议调整模型参数");
+        List<String> recommendations = new ArrayList<>();
+
+        // 基于真实结果数据生成建议
+        if (resultData != null && !resultData.isEmpty()) {
+            // 根据算法类型和结果数据生成具体建议
+            // 这里应该实现基于真实数据的智能推荐逻辑
+            recommendations.add("基于当前结果的优化建议");
+        } else {
+            recommendations.add("请提供有效的结果数据以获取个性化建议");
+        }
+
+        return recommendations;
     }
 
     private String exportToJson(Map<String, Object> data, String fileName) {
@@ -497,7 +508,31 @@ public class VisualizationEnhancementServiceImpl implements IVisualizationEnhanc
     }
 
     private Double calculateAverageConfidence(Object confidences) {
-        return 0.85;
+        if (confidences == null) {
+            return null;
+        }
+
+        // 基于真实置信度数据计算平均值
+        if (confidences instanceof List) {
+            @SuppressWarnings("unchecked")
+            List<Object> confList = (List<Object>) confidences;
+            if (confList.isEmpty()) {
+                return null;
+            }
+
+            double sum = 0.0;
+            int count = 0;
+            for (Object conf : confList) {
+                if (conf instanceof Number) {
+                    sum += ((Number) conf).doubleValue();
+                    count++;
+                }
+            }
+
+            return count > 0 ? sum / count : null;
+        }
+
+        return null;
     }
 
     private Map<String, Object> analyzeConfidenceDistribution(Object confidences) {

@@ -7,38 +7,13 @@
       </template>
     </el-page-header>
 
-    <!-- Debug信息 -->
-    <el-card shadow="never" style="margin-top: 20px;" v-if="debugMode">
-      <div slot="header" class="clearfix">
-        <span>🐛 Debug信息</span>
-        <el-button style="float: right; padding: 3px 0" type="text" @click="debugMode = false">
-          关闭
-        </el-button>
-      </div>
-      <div>
-        <p><strong>数据集数量:</strong> {{ datasets.length }}</p>
-        <p><strong>选中数据集:</strong> {{ selectedDataset ? selectedDataset.fileName : '无' }}</p>
-        <p><strong>列信息:</strong> 总列数 {{ datasetColumns.length }}, 数值列 {{ numericColumns.length }}</p>
-        <p><strong>当前功能:</strong> {{ activeFunction }}</p>
-        <p><strong>API状态:</strong> {{ apiStatus }}</p>
-      </div>
-      <div v-if="debugInfo" style="margin-top: 10px;">
-        <el-collapse>
-          <el-collapse-item title="详细信息" name="1">
-            <pre style="max-height: 300px; overflow-y: auto;">{{ JSON.stringify(debugInfo, null, 2) }}</pre>
-          </el-collapse-item>
-        </el-collapse>
-      </div>
-    </el-card>
+
 
     <!-- 数据集选择区域 -->
     <el-card shadow="never" style="margin-top: 20px;">
       <div slot="header" class="clearfix">
         <span>数据集选择</span>
         <div style="float: right;">
-          <el-button style="padding: 3px 0; margin-right: 10px;" type="text" @click="debugMode = true" size="mini">
-            Debug
-          </el-button>
           <el-button style="padding: 3px 0" type="text" @click="refreshDatasets">
             <i class="el-icon-refresh"></i> 刷新
           </el-button>
@@ -85,14 +60,24 @@
             <span>可视化功能</span>
           </div>
           
+          <!-- 功能选择 -->
+          <div style="margin-bottom: 15px;">
+            <el-radio-group v-model="activeFunction" @change="handleFunctionChange">
+              <el-radio-button label="overview">数据概览</el-radio-button>
+              <el-radio-button label="curves">测井曲线</el-radio-button>
+              <el-radio-button label="statistics">统计分析</el-radio-button>
+              <el-radio-button label="correlation">相关性分析</el-radio-button>
+            </el-radio-group>
+          </div>
+
           <!-- 功能说明 -->
           <el-alert
-            title="可视化分析"
+            :title="functionTitles[activeFunction]"
             type="info"
             :closable="false"
             show-icon>
             <template slot="description">
-              选择数据集后，将自动显示数据概览、石油曲线图、相关性分析和统计分析等所有可视化内容。
+              {{ getFunctionDescription(activeFunction) }}
             </template>
           </el-alert>
 
@@ -148,51 +133,39 @@
             </el-button>
           </div>
           
-          <!-- 可视化结果 - 显示所有组件 -->
+          <!-- 可视化结果 - 根据选择的功能显示对应组件 -->
           <div v-else-if="selectedDatasetId">
             <!-- 数据概览 -->
-            <el-card class="box-card" style="margin-bottom: 20px;">
-              <div slot="header" class="clearfix">
-                <span>数据概览</span>
-              </div>
+            <div v-if="activeFunction === 'overview'">
               <DataPreview
                 :source-id="selectedDatasetId"
-                :source-type="selectedDataset ? selectedDataset.sourceType : 'task'">
+                :source-type="selectedDataset ? (selectedDataset.sourceType || 'dataset') : 'dataset'">
               </DataPreview>
-            </el-card>
+            </div>
 
             <!-- 石油曲线图 -->
-            <el-card class="box-card" style="margin-bottom: 20px;">
-              <div slot="header" class="clearfix">
-                <span>石油曲线图</span>
-              </div>
+            <div v-else-if="activeFunction === 'curves'">
               <PetroleumCurves
                 :source-id="selectedDatasetId"
-                :source-type="selectedDataset ? selectedDataset.sourceType : 'task'">
+                :source-type="selectedDataset ? (selectedDataset.sourceType || 'dataset') : 'dataset'">
               </PetroleumCurves>
-            </el-card>
+            </div>
 
             <!-- 相关性分析 -->
-            <el-card class="box-card" style="margin-bottom: 20px;">
-              <div slot="header" class="clearfix">
-                <span>相关性分析</span>
-              </div>
+            <div v-else-if="activeFunction === 'correlation'">
               <CorrelationAnalysis
                 :source-id="selectedDatasetId"
-                :source-type="selectedDataset ? selectedDataset.sourceType : 'task'">
+                :source-type="selectedDataset ? (selectedDataset.sourceType || 'dataset') : 'dataset'">
               </CorrelationAnalysis>
-            </el-card>
+            </div>
 
             <!-- 统计分析 -->
-            <el-card class="box-card" style="margin-bottom: 20px;">
-              <div slot="header" class="clearfix">
-                <span>统计分析</span>
-              </div>
+            <div v-else-if="activeFunction === 'statistics'">
               <StatisticsAnalysis
                 :source-id="selectedDatasetId"
-                :source-type="selectedDataset ? selectedDataset.sourceType : 'task'">
+                :source-type="selectedDataset ? (selectedDataset.sourceType || 'dataset') : 'dataset'">
               </StatisticsAnalysis>
-            </el-card>
+            </div>
           </div>
 
           <!-- 空状态 -->
@@ -214,7 +187,8 @@
 </template>
 
 <script>
-import { getAllDataSources, getDataSourceColumns, generateVisualization } from "@/api/petrol/visualization";
+import { generateVisualization } from "@/api/petrol/visualization";
+import { listAvailableDatasets, getDatasetColumns } from "@/api/petrol/dataset";
 
 
 
@@ -242,9 +216,16 @@ export default {
       selectedDataset: null,
       datasetColumns: [],
       numericColumns: [],
-      
 
-      
+      // 功能相关
+      activeFunction: 'overview',
+      functionTitles: {
+        overview: '数据概览',
+        curves: '测井曲线',
+        statistics: '统计分析',
+        correlation: '相关性分析'
+      },
+
       // 配置和数据
       chartConfig: {},
       chartData: null,
@@ -255,12 +236,7 @@ export default {
       error: null,
 
       // 图表实例
-      chartInstance: null,
-
-      // Debug相关
-      debugMode: false,
-      apiStatus: '未测试',
-      debugInfo: null
+      chartInstance: null
     };
   },
   computed: {
@@ -278,26 +254,25 @@ export default {
   },
   methods: {
     /** 加载数据集列表 */
-    loadDatasets() {
+    async loadDatasets() {
       this.datasetsLoading = true;
 
-      // 调用数据源API获取数据源列表
-      getAllDataSources().then(response => {
-        // 转换数据源格式为数据集格式
-        const dataSources = response.data || [];
-        this.datasets = dataSources.map(source => ({
-          id: source.id,
-          fileName: source.name || source.fileName,
-          rowCount: source.rowCount || 0,
-          columnCount: source.columnCount || 0,
-          createTime: source.createTime,
-          sourceType: source.sourceType
+      try {
+        const response = await listAvailableDatasets();
+        const datasets = response.data || [];
+        this.datasets = datasets.map(dataset => ({
+          id: dataset.id,
+          fileName: dataset.datasetName,
+          rowCount: dataset.rowCount || 0,
+          columnCount: dataset.columnCount || 0,
+          createTime: dataset.uploadTime,
+          datasetCategory: dataset.datasetCategory
         }));
         this.datasetsLoading = false;
-      }).catch(error => {
+      } catch (error) {
         this.datasetsLoading = false;
-        this.$modal.msgError("加载数据源失败: " + error.message);
-      });
+        this.$message.error("加载数据集失败: " + error.message);
+      }
     },
     
     /** 刷新数据集 */
@@ -321,21 +296,20 @@ export default {
     },
     
     /** 加载数据集列信息 */
-    loadDatasetColumns(datasetId) {
-      // 获取数据源类型
-      const dataset = this.datasets.find(d => d.id === datasetId);
-      const sourceType = dataset ? dataset.sourceType : 'task';
-
-      // 调用数据源API获取列信息
-      getDataSourceColumns(datasetId, sourceType).then(response => {
+    async loadDatasetColumns(datasetId) {
+      try {
+        const response = await getDatasetColumns(datasetId);
         const data = response.data;
         this.datasetColumns = data.columns || [];
-        this.numericColumns = data.numericColumns || [];
-      }).catch(error => {
-        this.$modal.msgError("获取数据源列信息失败: " + error.message);
+        this.numericColumns = data.numericColumns || data.columns.filter(col => {
+          const stats = data.stats && data.stats[col];
+          return stats && (stats.type === 'numeric' || stats.type === 'integer' || stats.type === 'float');
+        }) || [];
+      } catch (error) {
+        this.$message.error("获取数据集列信息失败: " + error.message);
         this.datasetColumns = [];
         this.numericColumns = [];
-      });
+      }
     },
     
 
@@ -504,10 +478,27 @@ export default {
       
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${this.selectedDataset.name}_${this.activeFunction}_chart.png`;
+      link.download = `${this.selectedDataset?.datasetName || 'dataset'}_${this.activeFunction}_chart.png`;
       link.click();
     },
-    
+
+    /** 功能切换处理 */
+    handleFunctionChange(value) {
+      this.activeFunction = value;
+      // 可以在这里添加切换功能时的逻辑
+    },
+
+    /** 获取功能描述 */
+    getFunctionDescription(func) {
+      const descriptions = {
+        overview: '显示数据集的基本信息、数据预览和质量统计',
+        curves: '展示石油测井曲线图，包括深度、孔隙度、渗透率等参数',
+        statistics: '提供详细的统计分析，包括分布图、箱线图等',
+        correlation: '分析各参数之间的相关性，生成相关性矩阵和热力图'
+      };
+      return descriptions[func] || '选择功能查看详细说明';
+    },
+
     /** 全屏显示 */
     fullscreen() {
       // 实现全屏功能

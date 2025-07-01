@@ -9,22 +9,23 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="taskName"    column="task_name"    />
         <result property="algorithm"    column="algorithm"    />
         <result property="status"    column="status"    />
+        <result property="progress"    column="progress"    />
 
         <result property="inputFilePath"    column="input_file_path"    />
         <result property="inputParamsJson"    column="parameters_json"    />
         <result property="inputFileHeadersJson"    column="input_file_headers_json"    />
+        <result property="datasetId"    column="dataset_id"    />
         <result property="outputDirPath"    column="output_dir_path"    />
         <result property="resultsJson"    column="results_json"    />
         <result property="errorMessage"    column="error_message"    />
+        <result property="executionTime"    column="execution_time"    />
         <result property="createBy"    column="create_by"    />
         <result property="createTime"    column="create_time"    />
-        <result property="updateBy"    column="update_by"    />
         <result property="updateTime"    column="update_time"    />
-        <result property="remark"    column="remark"    />
     </resultMap>
 
     <sql id="selectAnalysisTaskVo">
-        select id, task_name, status, algorithm, input_file_path, parameters_json, input_file_headers_json, output_dir_path, results_json, error_message, create_by, create_time, update_by, update_time, remark from pt_analysis_task
+        select id, task_name, status, algorithm, progress, input_file_path, parameters_json, input_file_headers_json, dataset_id, output_dir_path, results_json, error_message, execution_time, created_by as create_by, create_time, update_time from pt_analysis_task
     </sql>
 
     <select id="selectAnalysisTaskList" parameterType="AnalysisTask" resultMap="AnalysisTaskResult">
@@ -46,36 +47,38 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <trim prefix="(" suffix=")" suffixOverrides=",">
             <if test="taskName != null">task_name,</if>
             <if test="status != null">status,</if>
-
+            <if test="progress != null">progress,</if>
             <if test="algorithm != null">algorithm,</if>
+
             <if test="inputFilePath != null">input_file_path,</if>
+
             <if test="inputParamsJson != null">parameters_json,</if>
             <if test="inputFileHeadersJson != null">input_file_headers_json,</if>
+            <if test="datasetId != null">dataset_id,</if>
             <if test="outputDirPath != null">output_dir_path,</if>
             <if test="resultsJson != null">results_json,</if>
             <if test="errorMessage != null">error_message,</if>
-            <if test="createBy != null">create_by,</if>
+            <if test="createBy != null">created_by,</if>
             <if test="createTime != null">create_time,</if>
-            <if test="updateBy != null">update_by,</if>
             <if test="updateTime != null">update_time,</if>
-            <if test="remark != null">remark,</if>
          </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             <if test="taskName != null">#{taskName},</if>
             <if test="status != null">#{status},</if>
-
+            <if test="progress != null">#{progress},</if>
             <if test="algorithm != null">#{algorithm},</if>
+
             <if test="inputFilePath != null">#{inputFilePath},</if>
+
             <if test="inputParamsJson != null">#{inputParamsJson},</if>
             <if test="inputFileHeadersJson != null">#{inputFileHeadersJson},</if>
+            <if test="datasetId != null">#{datasetId},</if>
             <if test="outputDirPath != null">#{outputDirPath},</if>
             <if test="resultsJson != null">#{resultsJson},</if>
             <if test="errorMessage != null">#{errorMessage},</if>
             <if test="createBy != null">#{createBy},</if>
-            <if test="createTime != null">create_time,</if>
-            <if test="updateBy != null">#{updateBy},</if>
-            <if test="updateTime != null">update_time,</if>
-            <if test="remark != null">#{remark},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
          </trim>
     </insert>
 
@@ -84,19 +87,19 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <trim prefix="SET" suffixOverrides=",">
             <if test="taskName != null">task_name = #{taskName},</if>
             <if test="status != null">status = #{status},</if>
-
+            <if test="progress != null">progress = #{progress},</if>
             <if test="algorithm != null">algorithm = #{algorithm},</if>
+
             <if test="inputFilePath != null">input_file_path = #{inputFilePath},</if>
+
             <if test="inputParamsJson != null">parameters_json = #{inputParamsJson},</if>
             <if test="inputFileHeadersJson != null">input_file_headers_json = #{inputFileHeadersJson},</if>
             <if test="outputDirPath != null">output_dir_path = #{outputDirPath},</if>
             <if test="resultsJson != null">results_json = #{resultsJson},</if>
             <if test="errorMessage != null">error_message = #{errorMessage},</if>
-            <if test="createBy != null">create_by = #{createBy},</if>
+            <if test="createBy != null">created_by = #{createBy},</if>
             <if test="createTime != null">create_time = #{createTime},</if>
-            <if test="updateBy != null">update_by = #{updateBy},</if>
             <if test="updateTime != null">update_time = #{updateTime},</if>
-            <if test="remark != null">remark = #{remark},</if>
         </trim>
         where id = #{id}
     </update>

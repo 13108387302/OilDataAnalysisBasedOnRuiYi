@@ -246,12 +246,14 @@ export default {
   },
   props: {
     sourceId: {
-      type: String,
+      type: [String, Number],
       required: true
     },
     sourceType: {
       type: String,
-      required: true
+      required: true,
+      default: 'task',
+      validator: value => ['task', 'dataset'].includes(value)
     }
   },
   data() {
@@ -453,7 +455,11 @@ export default {
     /** 加载任务基本信息 */
     async loadTaskInfo() {
       try {
-        const response = await getDataSourceInfo(this.sourceId, this.sourceType);
+        // 确保sourceId是字符串类型，sourceType有默认值
+        const sourceId = String(this.sourceId);
+        const sourceType = this.sourceType || 'task';
+
+        const response = await getDataSourceInfo(sourceId, sourceType);
         this.taskInfo = response.data || {};
       } catch (error) {
         console.error("加载任务信息失败:", error);
@@ -466,12 +472,16 @@ export default {
       this.error = null;
 
       try {
+        // 确保sourceId是字符串类型，sourceType有默认值
+        const sourceId = String(this.sourceId);
+        const sourceType = this.sourceType || 'task';
+
         console.log('📊 开始加载任务结果', {
-          sourceId: this.sourceId,
-          sourceType: this.sourceType
+          sourceId,
+          sourceType
         });
 
-        const taskId = this.sourceId.replace('task_', '');
+        const taskId = sourceId.replace('task_', '');
         console.log('📊 解析任务ID:', taskId);
 
         const response = await getTask(taskId);
@@ -949,8 +959,12 @@ export default {
     /** 加载输入数据 */
     async loadInputData() {
       try {
+        // 确保sourceId是字符串类型，sourceType有默认值
+        const sourceId = String(this.sourceId);
+        const sourceType = this.sourceType || 'task';
+
         const dataParams = { maxRows: 1000 };
-        const response = await readDataSourceData(this.sourceId, this.sourceType, dataParams);
+        const response = await readDataSourceData(sourceId, sourceType, dataParams);
         this.inputData = response.data || [];
         console.log('📊 输入数据加载完成:', this.inputData.length, '条记录');
       } catch (error) {

@@ -190,12 +190,14 @@ export default {
   name: "CorrelationAnalysis",
   props: {
     sourceId: {
-      type: String,
+      type: [String, Number],
       required: true
     },
     sourceType: {
       type: String,
-      required: true
+      required: true,
+      default: 'dataset',
+      validator: value => ['task', 'dataset'].includes(value)
     }
   },
   data() {
@@ -312,12 +314,16 @@ export default {
       this.isLoadingData = true;
 
       try {
+        // 确保sourceId是字符串类型，sourceType有默认值
+        const sourceId = String(this.sourceId);
+        const sourceType = this.sourceType || 'dataset';
+
         console.log('📋 开始加载列信息', {
-          sourceId: this.sourceId,
-          sourceType: this.sourceType
+          sourceId,
+          sourceType
         });
 
-        const response = await getDataSourceColumns(this.sourceId, this.sourceType);
+        const response = await getDataSourceColumns(sourceId, sourceType);
         const data = response.data || {};
         this.numericColumns = data.numericColumns || [];
 
@@ -363,9 +369,13 @@ export default {
       this.isLoadingData = true;
 
       try {
+        // 确保sourceId是字符串类型，sourceType有默认值
+        const sourceId = String(this.sourceId);
+        const sourceType = this.sourceType || 'dataset';
+
         console.log('🔍 开始加载相关性分析数据', {
-          sourceId: this.sourceId,
-          sourceType: this.sourceType,
+          sourceId,
+          sourceType,
           selectedColumns: this.selectedColumns
         });
 
@@ -375,7 +385,7 @@ export default {
           maxRows: 1000 // 限制数据量以提高性能
         };
 
-        const response = await readDataSourceData(this.sourceId, this.sourceType, params);
+        const response = await readDataSourceData(sourceId, sourceType, params);
         const data = response.data || [];
 
         console.log('📋 相关性分析数据响应', {

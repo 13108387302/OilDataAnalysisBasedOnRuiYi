@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.petrol.mapper.PetrolDatasetMapper">
+    
+    <resultMap type="PetrolDataset" id="PetrolDatasetResult">
+        <result property="id"    column="id"    />
+        <result property="datasetName"    column="dataset_name"    />
+        <result property="datasetDescription"    column="dataset_description"    />
+        <result property="fileName"    column="file_name"    />
+        <result property="filePath"    column="file_path"    />
+        <result property="fileSize"    column="file_size"    />
+        <result property="fileType"    column="file_type"    />
+        <result property="totalRows"    column="total_rows"    />
+        <result property="totalColumns"    column="total_columns"    />
+        <result property="columnInfo"    column="column_info"    />
+        <result property="dataQualityScore"    column="data_quality_score"    />
+        <result property="datasetCategory"    column="dataset_category"    />
+        <result property="status"    column="status"    />
+        <result property="createBy"    column="create_by"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateBy"    column="update_by"    />
+        <result property="updateTime"    column="update_time"    />
+        <result property="remark"    column="remark"    />
+    </resultMap>
+
+    <sql id="selectPetrolDatasetVo">
+        select id, dataset_name, dataset_description, file_name, file_path, file_size, file_type, total_rows, total_columns, column_info, data_quality_score, dataset_category, status, is_public, upload_progress, processing_status, created_by as create_by, create_time, update_time from petrol_dataset
+    </sql>
+
+    <!-- 优化查询：带统计信息的数据集列表 -->
+    <select id="selectPetrolDatasetListWithStats" parameterType="PetrolDataset" resultMap="PetrolDatasetResult">
+        SELECT
+            d.id, d.dataset_name, d.dataset_description, d.file_name, d.file_path,
+            d.file_size, d.file_type, d.total_rows, d.total_columns, d.column_info,
+            d.data_quality_score, d.dataset_category, d.status, d.is_public,
+            d.upload_progress, d.processing_status, d.created_by as create_by, d.create_time, d.update_time,
+            COALESCE(task_stats.task_count, 0) as task_count,
+            COALESCE(model_stats.model_count, 0) as model_count
+        FROM petrol_dataset d
+        LEFT JOIN (
+            SELECT dataset_id, COUNT(*) as task_count
+            FROM pt_analysis_task
+            WHERE dataset_id IS NOT NULL
+            GROUP BY dataset_id
+        ) task_stats ON d.id = task_stats.dataset_id
+        LEFT JOIN (
+            SELECT dataset_id, COUNT(*) as model_count
+            FROM petrol_model
+            WHERE dataset_id IS NOT NULL
+            GROUP BY dataset_id
+        ) model_stats ON d.id = model_stats.dataset_id
+        <where>
+            <if test="datasetName != null and datasetName != ''">
+                AND d.dataset_name like concat('%', #{datasetName}, '%')
+            </if>
+            <if test="datasetCategory != null and datasetCategory != ''">
+                AND d.dataset_category = #{datasetCategory}
+            </if>
+            <if test="status != null and status != ''">
+                AND d.status = #{status}
+            </if>
+            <if test="isPublic != null and isPublic != ''">
+                AND d.is_public = #{isPublic}
+            </if>
+        </where>
+        ORDER BY d.create_time DESC
+    </select>
+
+    <!-- 批量查询数据集（避免N+1查询） -->
+    <select id="selectPetrolDatasetByIds" resultMap="PetrolDatasetResult">
+        <include refid="selectPetrolDatasetVo"/>
+        WHERE id IN
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        ORDER BY create_time DESC
+    </select>
+
+    <select id="selectPetrolDatasetList" parameterType="PetrolDataset" resultMap="PetrolDatasetResult">
+        <include refid="selectPetrolDatasetVo"/>
+        <where>  
+            <if test="datasetName != null  and datasetName != ''"> and dataset_name like concat('%', #{datasetName}, '%')</if>
+            <if test="datasetDescription != null  and datasetDescription != ''"> and dataset_description like concat('%', #{datasetDescription}, '%')</if>
+            <if test="fileName != null  and fileName != ''"> and file_name like concat('%', #{fileName}, '%')</if>
+            <if test="fileType != null  and fileType != ''"> and file_type = #{fileType}</if>
+            <if test="datasetCategory != null  and datasetCategory != ''"> and dataset_category = #{datasetCategory}</if>
+            <if test="status != null  and status != ''"> and status = #{status}</if>
+        </where>
+        order by create_time desc
+    </select>
+    
+    <select id="selectPetrolDatasetById" parameterType="Long" resultMap="PetrolDatasetResult">
+        <include refid="selectPetrolDatasetVo"/>
+        where id = #{id}
+    </select>
+
+    <select id="selectPetrolDatasetByName" parameterType="String" resultMap="PetrolDatasetResult">
+        <include refid="selectPetrolDatasetVo"/>
+        where dataset_name = #{datasetName}
+    </select>
+
+    <select id="selectAvailableDatasets" resultMap="PetrolDatasetResult">
+        <include refid="selectPetrolDatasetVo"/>
+        where status = 'ACTIVE'
+        order by create_time desc
+    </select>
+
+    <select id="selectDatasetsByCategory" parameterType="String" resultMap="PetrolDatasetResult">
+        <include refid="selectPetrolDatasetVo"/>
+        where status = 'ACTIVE' and dataset_category = #{category}
+        order by create_time desc
+    </select>
+
+    <select id="checkDatasetUsage" parameterType="Long" resultType="int">
+        select
+            (select count(*) from pt_analysis_task where dataset_id = #{datasetId}) +
+            (select count(*) from petrol_prediction where dataset_id = #{datasetId}) as usage_count
+    </select>
+        
+    <insert id="insertPetrolDataset" parameterType="PetrolDataset" useGeneratedKeys="true" keyProperty="id">
+        insert into petrol_dataset
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="datasetName != null and datasetName != ''">dataset_name,</if>
+            <if test="datasetDescription != null">dataset_description,</if>
+            <if test="fileName != null and fileName != ''">file_name,</if>
+            <if test="filePath != null and filePath != ''">file_path,</if>
+            <if test="fileSize != null">file_size,</if>
+            <if test="fileType != null">file_type,</if>
+            <if test="totalRows != null">total_rows,</if>
+            <if test="totalColumns != null">total_columns,</if>
+            <if test="columnInfo != null">column_info,</if>
+            <if test="dataQualityScore != null">data_quality_score,</if>
+            <if test="datasetCategory != null">dataset_category,</if>
+            <if test="status != null">status,</if>
+            <if test="createBy != null">created_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="remark != null">remark,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="datasetName != null and datasetName != ''">#{datasetName},</if>
+            <if test="datasetDescription != null">#{datasetDescription},</if>
+            <if test="fileName != null and fileName != ''">#{fileName},</if>
+            <if test="filePath != null and filePath != ''">#{filePath},</if>
+            <if test="fileSize != null">#{fileSize},</if>
+            <if test="fileType != null">#{fileType},</if>
+            <if test="totalRows != null">#{totalRows},</if>
+            <if test="totalColumns != null">#{totalColumns},</if>
+            <if test="columnInfo != null">#{columnInfo},</if>
+            <if test="dataQualityScore != null">#{dataQualityScore},</if>
+            <if test="datasetCategory != null">#{datasetCategory},</if>
+            <if test="status != null">#{status},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="remark != null">#{remark},</if>
+         </trim>
+    </insert>
+
+    <update id="updatePetrolDataset" parameterType="PetrolDataset">
+        update petrol_dataset
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="datasetName != null and datasetName != ''">dataset_name = #{datasetName},</if>
+            <if test="datasetDescription != null">dataset_description = #{datasetDescription},</if>
+            <if test="fileName != null and fileName != ''">file_name = #{fileName},</if>
+            <if test="filePath != null and filePath != ''">file_path = #{filePath},</if>
+            <if test="fileSize != null">file_size = #{fileSize},</if>
+            <if test="fileType != null">file_type = #{fileType},</if>
+            <if test="totalRows != null">total_rows = #{totalRows},</if>
+            <if test="totalColumns != null">total_columns = #{totalColumns},</if>
+            <if test="columnInfo != null">column_info = #{columnInfo},</if>
+            <if test="dataQualityScore != null">data_quality_score = #{dataQualityScore},</if>
+            <if test="datasetCategory != null">dataset_category = #{datasetCategory},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <update id="updateDatasetStats" parameterType="PetrolDataset">
+        update petrol_dataset
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="totalRows != null">total_rows = #{totalRows},</if>
+            <if test="totalColumns != null">total_columns = #{totalColumns},</if>
+            <if test="columnInfo != null">column_info = #{columnInfo},</if>
+            <if test="dataQualityScore != null">data_quality_score = #{dataQualityScore},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deletePetrolDatasetById" parameterType="Long">
+        delete from petrol_dataset where id = #{id}
+    </delete>
+
+    <delete id="deletePetrolDatasetByIds" parameterType="String">
+        delete from petrol_dataset where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+    <delete id="deleteAllDatasets">
+        delete from petrol_dataset
+    </delete>
+</mapper>

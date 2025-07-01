@@ -816,8 +816,17 @@ export default {
 
     /** 计算聚类惯性 */
     calculateClusterInertia(cluster) {
-      // 简化计算，实际需要更复杂的逻辑
-      return Math.random() * 100;
+      // 🔴 系统已禁用随机数生成，使用真实数据计算
+      console.warn('⚠️ calculateClusterInertia: 系统已禁用随机数生成');
+
+      // 如果有真实的惯性数据，使用真实数据
+      if (cluster && cluster.inertia !== undefined) {
+        return cluster.inertia;
+      }
+
+      // 如果没有真实数据，返回null而不是随机数
+      console.warn('⚠️ 缺少真实的聚类惯性数据');
+      return null;
     },
 
     /** 格式化百分比 */

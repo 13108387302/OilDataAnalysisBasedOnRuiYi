@@ -1,5 +1,6 @@
 # app/algorithms/regression/xgboost.py
 import pandas as pd
+import numpy as np
 import xgboost as xgb
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
@@ -9,6 +10,7 @@ from joblib import dump, load
 from app.algorithms.base_algorithm import BaseAlgorithm
 from app.visualizations.plot_factory import plot_regression
 from app.algorithms.base_predictor import BasePredictorAlgorithm
+from app.utils.data_cleaner import clean_regression_data, validate_data_for_ml
 
 class Trainer(BaseAlgorithm):
     """
@@ -38,14 +40,44 @@ class Trainer(BaseAlgorithm):
         # XGBoost specific params
         n_estimators = int(self.params.get('n_estimators', 100))
         learning_rate = float(self.params.get('learning_rate', 0.1))
-        max_depth = int(self.params.get('max_depth', 3))
 
-        # Prepare data
-        X = dataframe[feature_cols].values
-        y = dataframe[target_col].values
-        
+        # Handle max_depth parameter
+        max_depth = self.params.get('max_depth', 6)
+        if max_depth and max_depth != 'None':
+            max_depth = int(max_depth)
+        else:
+            max_depth = 6  # XGBoost default
+
+        # Handle subsample parameter
+        subsample = self.params.get('subsample', 1.0)
+        if subsample:
+            subsample = float(subsample)
+        else:
+            subsample = 1.0
+
+        # Handle colsample_bytree parameter
+        colsample_bytree = self.params.get('colsample_bytree', 1.0)
+        if colsample_bytree:
+            colsample_bytree = float(colsample_bytree)
+        else:
+            colsample_bytree = 1.0
+
+        # 使用数据清理工具清理数据
+        combined_df, X_df, y_series = clean_regression_data(
+            dataframe, feature_cols, target_col,
+            remove_outliers=True, outlier_percentile=99.9
+        )
+
+        # 转换为numpy数组
+        X_clean = X_df.values
+        y_clean = y_series.values
+
+        # 验证数据质量
+        validate_data_for_ml(X_clean, y_clean)
+
+        # 分割训练和测试数据
         X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=test_size, random_state=random_state
+            X_clean, y_clean, test_size=test_size, random_state=random_state
         )
 
         # Train model
@@ -54,6 +86,8 @@ class Trainer(BaseAlgorithm):
             n_estimators=n_estimators,
             learning_rate=learning_rate,
             max_depth=max_depth,
+            subsample=subsample,
+            colsample_bytree=colsample_bytree,
             random_state=random_state,
             n_jobs=-1
         )
@@ -66,9 +100,6 @@ class Trainer(BaseAlgorithm):
         r2 = r2_score(y_test, y_pred)
         mse = mean_squared_error(y_test, y_pred)
         mae = mean_absolute_error(y_test, y_pred)
-        
-        # Predict on the full dataset for visualization
-        full_pred = model.predict(X)
 
         return {
             "statistics": {
@@ -81,6 +112,8 @@ class Trainer(BaseAlgorithm):
                 "n_estimators": int(n_estimators),
                 "learning_rate": float(learning_rate),
                 "max_depth": int(max_depth),
+                "subsample": float(subsample),
+                "colsample_bytree": float(colsample_bytree),
                 "feature_columns": feature_cols,
                 "target_column": target_col
             },
@@ -90,7 +123,7 @@ class Trainer(BaseAlgorithm):
             "actual_values": y_test,
             "feature_values": X_test,
             "feature_importance": dict(zip(feature_cols, model.feature_importances_)),
-            "input_sample": dataframe[feature_cols + [target_col]].head(100).to_dict('records')
+            "input_sample": combined_df[feature_cols + [target_col]].head(100).to_dict('records')
         }
 
     def _visualize(self, dataframe: pd.DataFrame, computed_data: dict, output_dir: Path) -> dict:

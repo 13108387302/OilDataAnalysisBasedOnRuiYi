@@ -186,12 +186,12 @@ class Trainer(BaseAlgorithm):
         if not model:
             return {}
 
-        model_path = output_dir / "tcn_model.pth"
+        file_name = "tcn_regression_model.pth"
+        model_path = output_dir / file_name
         try:
             torch.save(model.state_dict(), model_path)
             print(f"Model saved to {model_path}")
-            # Return a relative path for the API response
-            return {"tcn_model_path": str(model_path.relative_to(Path.cwd()))}
+            return {"model_file": file_name}
         except Exception as e:
             print(f"Error saving model: {e}")
             return {}

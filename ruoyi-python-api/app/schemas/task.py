@@ -1,4 +1,4 @@
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from pydantic import BaseModel, Field
 
 class TaskSubmitRequest(BaseModel):
@@ -20,9 +20,39 @@ class TaskSubmitRequest(BaseModel):
     input_file_path: str = Field(..., example="E:/Code/RuoYi_/RuoYi-Vue/data/petrol/uploads/predict_linear_regression/1625123456789/my_data.xlsx")
     output_dir_path: str = Field(..., example="E:/Code/RuoYi_/RuoYi-Vue/data/petrol/results/predict_linear_regression/1625123456789")
 
+class PredictRequest(BaseModel):
+    """
+    预测 API 的请求体模型
+    """
+    task_name: str = Field(..., example="预测任务")
+    features: list = Field(..., example=["DEPTH", "GR"])
+    target: str = Field(..., example="POROSITY")
+    task_type: str = Field(..., example="regression")
+    model_selection: Dict[str, Any] = Field(..., example={"mode": "existing", "model": {"id": 1}})
+    data_file: Optional[Dict[str, Any]] = Field(None, example={"name": "data.csv"})
+
+    # 🔧 修复：添加预测参数字段
+    parameters: Optional[Dict[str, Any]] = Field(None, example={
+        "sampleCount": 50,
+        "samplingStrategy": "sequential",
+        "outputPrecision": 4,
+        "includeConfidence": True
+    })
+
+    # 🔧 修复：添加预测索引字段
+    prediction_indices: Optional[List[int]] = Field(None, example=[0, 1, 2, 3, 4])
+
+    # 🔧 修复：添加其他可能的顶级字段
+    sample_count: Optional[int] = Field(None, example=50)
+    sampling_strategy: Optional[str] = Field(None, example="sequential")
+    output_precision: Optional[int] = Field(None, example=4)
+    include_confidence: Optional[bool] = Field(None, example=True)
+    include_input_features: Optional[bool] = Field(None, example=True)
+    output_format: Optional[str] = Field(None, example="detailed")
+
 class TaskSubmitResponse(BaseModel):
     """
     任务提交 API 的响应体模型
     """
     message: str = Field(..., example="任务提交成功")
-    task_id: str = Field(..., example="celery-task-id-abcdef123456") 
+    task_id: str = Field(..., example="celery-task-id-abcdef123456")

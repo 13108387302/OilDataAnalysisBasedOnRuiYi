@@ -14,8 +14,7 @@ import com.ruoyi.common.annotation.Log;
 import com.ruoyi.common.config.RuoYiConfig;
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
-import com.ruoyi.common.core.domain.entity.SysUser;
-import com.ruoyi.common.core.domain.model.LoginUser;
+
 import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.SecurityUtils;
@@ -50,8 +49,8 @@ public class SysProfileController extends BaseController
     @GetMapping
     public AjaxResult profile()
     {
-        LoginUser loginUser = getLoginUser();
-        SysUser user = loginUser.getUser();
+        com.ruoyi.common.core.domain.model.LoginUser loginUser = getLoginUser();
+        com.ruoyi.common.core.domain.entity.SysUser user = loginUser.getUser();
         AjaxResult ajax = AjaxResult.success(user);
         ajax.put("roleGroup", userService.selectUserRoleGroup(loginUser.getUsername()));
         ajax.put("postGroup", userService.selectUserPostGroup(loginUser.getUsername()));
@@ -63,10 +62,10 @@ public class SysProfileController extends BaseController
      */
     @Log(title = "个人信息", businessType = BusinessType.UPDATE)
     @PutMapping
-    public AjaxResult updateProfile(@RequestBody SysUser user)
+    public AjaxResult updateProfile(@RequestBody com.ruoyi.common.core.domain.entity.SysUser user)
     {
-        LoginUser loginUser = getLoginUser();
-        SysUser currentUser = loginUser.getUser();
+        com.ruoyi.common.core.domain.model.LoginUser loginUser = getLoginUser();
+        com.ruoyi.common.core.domain.entity.SysUser currentUser = loginUser.getUser();
         currentUser.setNickName(user.getNickName());
         currentUser.setEmail(user.getEmail());
         currentUser.setPhonenumber(user.getPhonenumber());
@@ -97,7 +96,7 @@ public class SysProfileController extends BaseController
     {
         String oldPassword = params.get("oldPassword");
         String newPassword = params.get("newPassword");
-        LoginUser loginUser = getLoginUser();
+        com.ruoyi.common.core.domain.model.LoginUser loginUser = getLoginUser();
         Long userId = loginUser.getUserId();
         String password = loginUser.getPassword();
         if (!SecurityUtils.matchesPassword(oldPassword, password))
@@ -129,7 +128,7 @@ public class SysProfileController extends BaseController
     {
         if (!file.isEmpty())
         {
-            LoginUser loginUser = getLoginUser();
+            com.ruoyi.common.core.domain.model.LoginUser loginUser = getLoginUser();
             String avatar = FileUploadUtils.upload(ruoYiConfig.getAvatarPath(), file, MimeTypeUtils.IMAGE_EXTENSION);
             if (userService.updateUserAvatar(loginUser.getUserId(), avatar))
             {

@@ -11,6 +11,7 @@ from joblib import dump, load
 from app.algorithms.base_algorithm import BaseAlgorithm
 from app.visualizations.plot_factory import plot_regression
 from app.algorithms.base_predictor import BasePredictorAlgorithm
+from app.utils.data_cleaner import clean_regression_data, validate_data_for_ml
 
 class Trainer(BaseAlgorithm):
     """
@@ -41,9 +42,18 @@ class Trainer(BaseAlgorithm):
         kernel = self.params.get('kernel', 'rbf')
         C = float(self.params.get('C', 1.0))
 
-        # Prepare data
-        X = dataframe[feature_cols].values
-        y = dataframe[target_col].values
+        # 使用数据清理工具清理数据
+        _, X_df, y_series = clean_regression_data(
+            dataframe, feature_cols, target_col,
+            remove_outliers=True, outlier_percentile=99.9
+        )
+
+        # 转换为numpy数组
+        X = X_df.values
+        y = y_series.values
+
+        # 验证数据质量
+        validate_data_for_ml(X, y)
         
         # Scale the features
         scaler_X = StandardScaler()

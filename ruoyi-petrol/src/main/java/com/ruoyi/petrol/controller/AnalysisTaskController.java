@@ -5,30 +5,22 @@ import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.enums.BusinessType;
-import com.ruoyi.common.utils.file.FileUploadUtils;
 import com.ruoyi.petrol.domain.AnalysisTask;
-import com.ruoyi.petrol.domain.dto.AnalysisTaskDTO;
+import com.ruoyi.petrol.domain.PetrolDataset;
 import com.ruoyi.petrol.domain.dto.AnalysisTaskUpdateDTO;
 import com.ruoyi.petrol.service.IAnalysisManagerService;
 import com.ruoyi.petrol.service.IAnalysisTaskService;
+import com.ruoyi.petrol.service.IPetrolDatasetService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
-import com.ruoyi.petrol.domain.dto.FileAnalysisResult;
+
 import java.io.File;
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.ss.usermodel.WorkbookFactory;
-import com.alibaba.fastjson.JSON;
+import java.util.Map;
+import com.alibaba.fastjson2.JSON;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,29 +35,36 @@ public class AnalysisTaskController extends BaseController {
 
     @Autowired
     private IAnalysisManagerService analysisManagerService;
-    
+
+    @Autowired
+    private IPetrolDatasetService petrolDatasetService;
+
     @Value("${ruoyi.profile}")
     private String uploadPath;
 
     /**
-     * 新增分析任务 (包含文件上传)
+     * 新增分析任务 (使用数据集模式)
      */
-    @PreAuthorize("@ss.hasPermi('petrol:task:add')")
+    @PreAuthorize("@ss.hasPermi('petrol:analysis:add')")
     @Log(title = "分析任务", businessType = BusinessType.INSERT)
     @PostMapping("/submit")
-    public AjaxResult submitTask(@RequestPart("file") MultipartFile file,
-                                 @RequestParam("taskName") String taskName,
+    public AjaxResult submitTask(@RequestParam("taskName") String taskName,
                                  @RequestParam("algorithm") String algorithm,
                                  @RequestParam("params") String params,
+                                 @RequestParam("datasetId") Long datasetId,
+                                 @RequestParam("datasetName") String datasetName,
                                  @RequestParam(value = "remark", required = false) String remark) throws Exception {
-        if (file == null || file.isEmpty()) {
-            return AjaxResult.error("上传文件不能为空，请选择文件后重试");
-        }
+        // 验证基本参数
         if (taskName == null || taskName.trim().isEmpty()) {
             return AjaxResult.error("任务名称不能为空");
         }
         if (algorithm == null || algorithm.trim().isEmpty()) {
             return AjaxResult.error("算法类型不能为空");
+        }
+
+        // 验证数据源：必须提供数据集ID
+        if (datasetId == null) {
+            return AjaxResult.error("请选择数据集");
         }
 
         // 手动构建 AnalysisTask 对象
@@ -74,15 +73,47 @@ public class AnalysisTaskController extends BaseController {
         analysisTask.setAlgorithm(algorithm);
         analysisTask.setInputParamsJson(params);
         analysisTask.setRemark(remark);
-        
-        // --- 任务处理逻辑保持不变 ---
+
+        // 设置数据集信息（如果使用数据集模式）
+        if (datasetId != null) {
+            analysisTask.setDatasetId(datasetId);
+            analysisTask.setDatasetName(datasetName);
+        }
+
         // Create a unique timestamped directory name for this task
         String taskTimestampDir = String.valueOf(System.currentTimeMillis());
-        
-        // 1. Define and create the input directory for the uploaded file
-        String inputFileSubDir = "petrol" + File.separator + "uploads" + File.separator + algorithm + File.separator + taskTimestampDir;
-        String absoluteInputPath = uploadPath + File.separator + inputFileSubDir;
-        String uploadedFilePathUrl = FileUploadUtils.upload(absoluteInputPath, file);
+
+        // 数据集模式 - 从数据集服务获取文件信息
+        PetrolDataset dataset = petrolDatasetService.selectPetrolDatasetById(datasetId);
+        if (dataset == null) {
+            return error("数据集不存在");
+        }
+
+        // 设置数据集ID，让AnalysisManagerService处理文件路径和列信息
+        analysisTask.setDatasetId(datasetId);
+        analysisTask.setInputFilePath("dataset:" + datasetId); // 临时标识，后续会被替换
+
+        // 如果数据集有列信息，提取列名并设置
+        if (dataset.getColumnInfo() != null && !dataset.getColumnInfo().isEmpty()) {
+            try {
+                // 解析数据集的列信息，提取列名
+                @SuppressWarnings("rawtypes")
+                List<Map> columns = JSON.parseArray(dataset.getColumnInfo(), Map.class);
+                List<String> columnNames = new ArrayList<>();
+                for (Map column : columns) {
+                    String name = (String) column.get("name");
+                    if (name != null && !name.trim().isEmpty()) {
+                        columnNames.add(name);
+                    }
+                }
+                if (!columnNames.isEmpty()) {
+                    analysisTask.setInputFileHeadersJson(JSON.toJSONString(columnNames));
+                    log.info("从数据集提取到列名: {}", columnNames);
+                }
+            } catch (Exception e) {
+                log.error("解析数据集列信息失败: {}", e.getMessage());
+            }
+        }
 
         // 2. Define the output directory for results
         String outputDirSubDir = "petrol" + File.separator + "results" + File.separator + algorithm + File.separator + taskTimestampDir;
@@ -90,16 +121,9 @@ public class AnalysisTaskController extends BaseController {
         if (!outputDir.exists()) {
             outputDir.mkdirs();
         }
-
-        // 3. 解析文件以获取头信息
-        FileAnalysisResult analysisResult = analysisTaskService.analyzeFile(file);
-        analysisTask.setInputFileHeadersJson(JSON.toJSONString(analysisResult.getHeaders()));
-
-        // 4. 设置任务属性
-        analysisTask.setInputFilePath(uploadedFilePathUrl.replace('\\', '/'));
         analysisTask.setOutputDirPath("/profile/" + outputDirSubDir.replace(File.separator, "/"));
         analysisTask.setStatus("QUEUED"); // 设置初始状态为排队中
-        analysisTask.setUserId(getUserId());
+        analysisTask.setCreateBy(getUsername());
         analysisTask.setDeptId(getDeptId());
 
         // 5. 将任务存入数据库
@@ -113,27 +137,12 @@ public class AnalysisTaskController extends BaseController {
         return ajax;
     }
 
-    /**
-     * 上传并分析文件，返回文件头和统计信息 (服务于前端UI交互)
-     */
-    @PostMapping("/analyzeFile")
-    public AjaxResult analyzeUploadedFile(@RequestParam("file") MultipartFile file) {
-        if (file.isEmpty()) {
-            return AjaxResult.error("上传的文件不能为空");
-        }
-        try {
-            FileAnalysisResult result = analysisTaskService.analyzeFile(file);
-            return AjaxResult.success(result);
-        } catch (Exception e) {
-            logger.error("解析文件失败", e);
-            return AjaxResult.error("解析文件失败: " + e.getMessage());
-        }
-    }
+
 
     /**
      * 获取分析任务详细信息
      */
-    @PreAuthorize("@ss.hasPermi('petrol:task:query')")
+    @PreAuthorize("@ss.hasPermi('petrol:analysis:query')")
     @GetMapping(value = "/{id}")
     public AjaxResult getInfo(@PathVariable("id") Long id)
     {
@@ -143,12 +152,12 @@ public class AnalysisTaskController extends BaseController {
     /**
      * 查询当前用户的分析任务列表
      */
-    @PreAuthorize("@ss.hasPermi('petrol:task:list')")
+    @PreAuthorize("@ss.hasPermi('petrol:analysis:list')")
     @GetMapping("/list")
     public TableDataInfo list(AnalysisTask analysisTask)
     {
         startPage();
-        analysisTask.setUserId(getUserId());
+        // 不再使用userId字段，改用createBy字段进行过滤
         List<AnalysisTask> list = analysisTaskService.selectAnalysisTaskList(analysisTask);
         return getDataTable(list);
     }
@@ -156,7 +165,7 @@ public class AnalysisTaskController extends BaseController {
     /**
      * 删除分析任务
      */
-    @PreAuthorize("@ss.hasPermi('petrol:task:remove')")
+    @PreAuthorize("@ss.hasPermi('petrol:analysis:remove')")
     @Log(title = "分析任务", businessType = BusinessType.DELETE)
     @DeleteMapping("/{ids}")
     public AjaxResult remove(@PathVariable Long[] ids)
@@ -167,7 +176,7 @@ public class AnalysisTaskController extends BaseController {
     /**
      * 修改分析任务 (包含重新处理)
      */
-    @PreAuthorize("@ss.hasPermi('petrol:task:edit')")
+    @PreAuthorize("@ss.hasPermi('petrol:analysis:edit')")
     @Log(title = "任务管理", businessType = BusinessType.UPDATE)
     @PutMapping
     public AjaxResult edit(@RequestBody AnalysisTaskUpdateDTO taskUpdateDTO)

@@ -1,5 +1,6 @@
 # app/algorithms/regression/random_forest.py
 import pandas as pd
+import numpy as np
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
@@ -10,6 +11,7 @@ from joblib import dump, load
 from app.algorithms.base_algorithm import BaseAlgorithm
 from app.visualizations.plot_factory import plot_regression
 from app.algorithms.base_predictor import BasePredictorAlgorithm
+from app.utils.data_cleaner import clean_regression_data, validate_data_for_ml
 
 class Trainer(BaseAlgorithm):
     """
@@ -39,13 +41,24 @@ class Trainer(BaseAlgorithm):
         # RandomForest specific params
         n_estimators = int(self.params.get('n_estimators', 100))
         max_depth = self.params.get('max_depth')
-        if max_depth:
+        if max_depth and max_depth != 'None':
             max_depth = int(max_depth)
+        else:
+            max_depth = None
 
-        # Prepare data
-        X = dataframe[feature_cols].values
-        y = dataframe[target_col].values
-        
+        # 使用数据清理工具清理数据
+        _, X_df, y_series = clean_regression_data(
+            dataframe, feature_cols, target_col,
+            remove_outliers=True, outlier_percentile=99.9
+        )
+
+        # 转换为numpy数组
+        X = X_df.values
+        y = y_series.values
+
+        # 验证数据质量
+        validate_data_for_ml(X, y)
+
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, test_size=test_size, random_state=random_state
         )
@@ -66,9 +79,6 @@ class Trainer(BaseAlgorithm):
         r2 = r2_score(y_test, y_pred)
         mse = mean_squared_error(y_test, y_pred)
         mae = mean_absolute_error(y_test, y_pred)
-        
-        # Predict on the full dataset for visualization
-        full_pred = model.predict(X)
 
         return {
             "statistics": {

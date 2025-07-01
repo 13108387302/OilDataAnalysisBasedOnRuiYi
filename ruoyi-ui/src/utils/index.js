@@ -284,9 +284,10 @@ export function uniqueArr(arr) {
  * @returns {string}
  */
 export function createUniqueString() {
+  // 🔴 系统已禁用随机数生成，使用确定性方法
   const timestamp = +new Date() + ''
-  const randomNum = parseInt((1 + Math.random()) * 65536) + ''
-  return (+(randomNum + timestamp)).toString(32)
+  const deterministicNum = parseInt((1 + (timestamp % 1000) / 1000) * 65536) + ''
+  return (+(deterministicNum + timestamp)).toString(32)
 }
 
 /**

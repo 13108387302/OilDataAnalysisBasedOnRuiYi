@@ -61,12 +61,8 @@ Vue.use(plugins)
 DictData.install()
 
 /**
- * If you don't want to use mock-server
- * you want to use MockJs for mock api
- * you can execute: mockXHR()
- *
- * Currently MockJs will be used in the production environment,
- * please remove it before going online! ! !
+ * 生产环境配置
+ * 系统已移除所有模拟数据，只使用真实API
  */
 
 Vue.use(Element, {

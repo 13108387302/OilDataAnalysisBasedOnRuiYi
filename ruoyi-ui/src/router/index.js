@@ -187,8 +187,20 @@ export const dynamicRoutes = [
       {
         path: 'visualization',
         name: 'PetrolVisualization',
-        component: () => import('@/views/petrol/visualization/simple'),
+        component: () => import('@/views/petrol/visualization/index'),
         meta: { title: '数据可视化', icon: 'el-icon-data-line' }
+      },
+      {
+        path: 'model',
+        name: 'PetrolModel',
+        component: () => import('@/views/petrol/model/index'),
+        meta: { title: '模型管理', icon: 'el-icon-cpu' }
+      },
+      {
+        path: 'prediction',
+        name: 'PetrolPrediction',
+        component: () => import('@/views/petrol/prediction/index'),
+        meta: { title: '预测管理', icon: 'el-icon-magic-stick' }
       }
     ]
   }

@@ -4,10 +4,12 @@ import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.SecurityUtils;
 import com.ruoyi.petrol.domain.AnalysisTask;
 import com.ruoyi.petrol.domain.dto.AnalysisTaskUpdateDTO;
-import com.ruoyi.petrol.domain.dto.FileAnalysisResult;
+
+import com.ruoyi.petrol.domain.PetrolModel;
 import com.ruoyi.petrol.mapper.AnalysisTaskMapper;
 import com.ruoyi.petrol.service.IAnalysisTaskService;
 import com.ruoyi.petrol.service.IAnalysisManagerService;
+import com.ruoyi.petrol.service.IPetrolModelService;
 import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,10 +18,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.context.annotation.Lazy;
 import com.ruoyi.common.config.RuoYiConfig;
-import org.springframework.web.multipart.MultipartFile;
-import com.ruoyi.petrol.domain.dto.ColumnStats;
-import org.apache.poi.ss.usermodel.*;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+
+
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -44,9 +45,12 @@ public class AnalysisTaskServiceImpl implements IAnalysisTaskService {
 
     @Autowired
     private AnalysisTaskMapper analysisTaskMapper;
-    
+
     @Autowired
     private RuoYiConfig ruoYiConfig;
+
+    @Autowired
+    private IPetrolModelService petrolModelService;
 
     private final IAnalysisManagerService analysisManagerService;
 
@@ -118,7 +122,23 @@ public class AnalysisTaskServiceImpl implements IAnalysisTaskService {
             throw new RuntimeException("任务不存在, ID: " + taskUpdateDTO.getId());
         }
 
-        // 2. 清理旧的输出目录，防止孤儿文件
+        // 2. 清理旧的模型记录和输出目录，防止孤儿数据
+        try {
+            // 2.1 删除旧的模型记录
+            List<PetrolModel> relatedModels = petrolModelService.selectModelsByTaskId(taskUpdateDTO.getId());
+            if (!relatedModels.isEmpty()) {
+                log.info("任务ID {} 参数更新，删除 {} 个旧模型记录", taskUpdateDTO.getId(), relatedModels.size());
+                for (PetrolModel model : relatedModels) {
+                    petrolModelService.deletePetrolModelById(model.getId());
+                    log.info("已删除旧模型: {} (ID: {})", model.getModelName(), model.getId());
+                }
+            }
+        } catch (Exception e) {
+            log.warn("清理任务ID {} 的旧模型记录时发生异常: {}", taskUpdateDTO.getId(), e.getMessage(), e);
+            // 不抛出异常，允许继续执行
+        }
+
+        // 2.2 清理旧的输出目录，防止孤儿文件
         if (existingTask.getOutputDirPath() != null && !existingTask.getOutputDirPath().isEmpty()) {
             try {
                 String absolutePath = getAbsoluteOutputPath(existingTask.getOutputDirPath());
@@ -257,6 +277,21 @@ public class AnalysisTaskServiceImpl implements IAnalysisTaskService {
                 continue;
             }
 
+            // 0. 级联删除相关的模型记录
+            try {
+                List<PetrolModel> relatedModels = petrolModelService.selectModelsByTaskId(id);
+                if (!relatedModels.isEmpty()) {
+                    log.info("任务ID {} 关联了 {} 个模型，将一并删除", id, relatedModels.size());
+                    for (PetrolModel model : relatedModels) {
+                        petrolModelService.deletePetrolModelById(model.getId());
+                        log.info("已删除关联模型: {} (ID: {})", model.getModelName(), model.getId());
+                    }
+                }
+            } catch (Exception e) {
+                log.error("删除任务ID {} 的关联模型时发生异常: {}", id, e.getMessage(), e);
+                // 不抛出异常，允许继续删除任务
+            }
+
             // 1. 删除输出结果文件夹
             if (task.getOutputDirPath() != null && !task.getOutputDirPath().isEmpty()) {
                 try {
@@ -306,6 +341,21 @@ public class AnalysisTaskServiceImpl implements IAnalysisTaskService {
     {
         AnalysisTask task = analysisTaskMapper.selectAnalysisTaskById(id);
         if (task != null) {
+            // 0. 级联删除相关的模型记录
+            try {
+                List<PetrolModel> relatedModels = petrolModelService.selectModelsByTaskId(id);
+                if (!relatedModels.isEmpty()) {
+                    log.info("任务ID {} 关联了 {} 个模型，将一并删除", id, relatedModels.size());
+                    for (PetrolModel model : relatedModels) {
+                        petrolModelService.deletePetrolModelById(model.getId());
+                        log.info("已删除关联模型: {} (ID: {})", model.getModelName(), model.getId());
+                    }
+                }
+            } catch (Exception e) {
+                log.error("删除任务ID {} 的关联模型时发生异常: {}", id, e.getMessage(), e);
+                // 不抛出异常，允许继续删除任务
+            }
+
             // 1. 删除输出结果文件夹
             if (task.getOutputDirPath() != null && !task.getOutputDirPath().isEmpty()) {
                 try {
@@ -354,67 +404,5 @@ public class AnalysisTaskServiceImpl implements IAnalysisTaskService {
         return analysisTask;
     }
 
-    @Override
-    public FileAnalysisResult analyzeFile(MultipartFile file) {
-        if (file.isEmpty()) {
-            throw new IllegalArgumentException("上传的文件不能为空");
-        }
 
-        List<String> headers = new ArrayList<>();
-        Map<String, ColumnStats> stats = new HashMap<>();
-
-        try (InputStream is = file.getInputStream(); Workbook workbook = new XSSFWorkbook(is)) {
-            Sheet sheet = workbook.getSheetAt(0);
-            if (sheet == null) {
-                throw new IllegalStateException("文件中没有找到工作表");
-            }
-
-            // 1. 读取表头
-            Row headerRow = sheet.getRow(0);
-            if (headerRow == null) {
-                throw new IllegalStateException("文件中没有找到表头行");
-            }
-            headerRow.forEach(cell -> {
-                String header = cell.getStringCellValue();
-                headers.add(header);
-                stats.put(header, new ColumnStats());
-            });
-
-            // 2. 遍历数据行以计算统计信息
-            DataFormatter dataFormatter = new DataFormatter();
-            for (int i = 1; i <= sheet.getLastRowNum(); i++) {
-                Row row = sheet.getRow(i);
-                if (row == null) continue;
-
-                for (int j = 0; j < headers.size(); j++) {
-                    Cell cell = row.getCell(j);
-                    if (cell == null) continue;
-
-                    try {
-                        // 尝试将单元格内容转换为double
-                        double value = cell.getNumericCellValue();
-                        String header = headers.get(j);
-                        ColumnStats columnStats = stats.get(header);
-                        
-                        // 更新最小值
-                        if (columnStats.getMin() == null || value < columnStats.getMin()) {
-                            columnStats.setMin(value);
-                        }
-                        // 更新最大值
-                        if (columnStats.getMax() == null || value > columnStats.getMax()) {
-                            columnStats.setMax(value);
-                        }
-                    } catch (IllegalStateException | NumberFormatException e) {
-                        // 如果单元格不是数值类型，则忽略
-                        continue;
-                    }
-                }
-            }
-        } catch (IOException e) {
-            log.error("解析上传文件时发生IO异常", e);
-            throw new RuntimeException("文件解析失败", e);
-        }
-
-        return new FileAnalysisResult(headers, stats);
-    }
 } 

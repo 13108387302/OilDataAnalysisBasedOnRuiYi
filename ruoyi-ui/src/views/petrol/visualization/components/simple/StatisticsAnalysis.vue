@@ -176,12 +176,14 @@ export default {
   name: "StatisticsAnalysis",
   props: {
     sourceId: {
-      type: String,
+      type: [String, Number],
       required: true
     },
     sourceType: {
       type: String,
-      required: true
+      required: true,
+      default: 'dataset',
+      validator: value => ['task', 'dataset'].includes(value)
     }
   },
   data() {
@@ -262,7 +264,11 @@ export default {
     async loadColumns() {
       this.loading = true;
       try {
-        const response = await getDataSourceColumns(this.sourceId, this.sourceType);
+        // 确保sourceId是字符串类型，sourceType有默认值
+        const sourceId = String(this.sourceId);
+        const sourceType = this.sourceType || 'dataset';
+
+        const response = await getDataSourceColumns(sourceId, sourceType);
         const data = response.data || {};
         this.numericColumns = data.numericColumns || [];
         
@@ -290,9 +296,13 @@ export default {
 
       this.statisticsLoading = true;
       try {
+        // 确保sourceId是字符串类型，sourceType有默认值
+        const sourceId = String(this.sourceId);
+        const sourceType = this.sourceType || 'dataset';
+
         console.log('🔍 开始加载统计信息', {
-          sourceId: this.sourceId,
-          sourceType: this.sourceType,
+          sourceId,
+          sourceType,
           selectedColumns: this.selectedColumns
         });
 
@@ -300,7 +310,7 @@ export default {
         const statsParams = {
           columns: this.selectedColumns
         };
-        const statsResponse = await getDataSourceStatistics(this.sourceId, this.sourceType, statsParams);
+        const statsResponse = await getDataSourceStatistics(sourceId, sourceType, statsParams);
         this.statistics = statsResponse.data || {};
 
         console.log('📊 统计信息响应', {
@@ -313,7 +323,7 @@ export default {
           columns: this.selectedColumns,
           maxRows: 500 // 限制数据量以提高性能
         };
-        const dataResponse = await readDataSourceData(this.sourceId, this.sourceType, dataParams);
+        const dataResponse = await readDataSourceData(sourceId, sourceType, dataParams);
         this.rawData = dataResponse.data || [];
 
         console.log('📋 原始数据响应', {

@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.petrol.mapper.PetrolPredictionMapper">
+    
+    <resultMap type="PetrolPrediction" id="PetrolPredictionResult">
+        <result property="id"    column="id"    />
+        <result property="predictionName"    column="prediction_name"    />
+        <result property="modelId"    column="model_id"    />
+        <result property="datasetId"    column="dataset_id"    />
+        <result property="predictionType"    column="prediction_type"    />
+        <result property="inputDataPath"    column="input_data_path"    />
+        <result property="outputDataPath"    column="output_data_path"    />
+        <result property="predictionParams"    column="prediction_params"    />
+        <result property="predictionResult"    column="prediction_result"    />
+        <result property="predictionCount"    column="prediction_count"    />
+        <result property="confidenceScore"    column="confidence_score"    />
+        <result property="executionTime"    column="execution_time"    />
+        <result property="status"    column="status"    />
+        <result property="errorMessage"    column="error_message"    />
+        <result property="createdBy"    column="created_by"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateTime"    column="update_time"    />
+    </resultMap>
+
+    <sql id="selectPetrolPredictionVo">
+        select id, prediction_name, model_id, dataset_id, prediction_type, input_data_path, output_data_path, prediction_params, prediction_result, prediction_count, confidence_score, execution_time, status, error_message, created_by, create_time, update_time from petrol_prediction
+    </sql>
+
+    <select id="selectPetrolPredictionList" parameterType="PetrolPrediction" resultMap="PetrolPredictionResult">
+        <include refid="selectPetrolPredictionVo"/>
+        <where>
+            <if test="predictionName != null  and predictionName != ''"> and prediction_name like concat('%', #{predictionName}, '%')</if>
+            <if test="modelId != null "> and model_id = #{modelId}</if>
+            <if test="status != null  and status != ''"> and status = #{status}</if>
+            <if test="createdBy != null  and createdBy != ''"> and created_by = #{createdBy}</if>
+        </where>
+        order by create_time desc
+    </select>
+    
+    <select id="selectPetrolPredictionById" parameterType="Long" resultMap="PetrolPredictionResult">
+        <include refid="selectPetrolPredictionVo"/>
+        where id = #{id}
+    </select>
+
+    <select id="selectPredictionsByModelId" parameterType="Long" resultMap="PetrolPredictionResult">
+        <include refid="selectPetrolPredictionVo"/>
+        where model_id = #{modelId}
+        order by create_time desc
+    </select>
+        
+    <insert id="insertPetrolPrediction" parameterType="PetrolPrediction" useGeneratedKeys="true" keyProperty="id">
+        insert into petrol_prediction
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="predictionName != null and predictionName != ''">prediction_name,</if>
+            <if test="modelId != null">model_id,</if>
+            <if test="modelName != null">model_name,</if>
+            <if test="inputData != null">input_data,</if>
+            <if test="predictionResult != null">prediction_result,</if>
+            <if test="status != null">status,</if>
+            <if test="inputFilePath != null">input_file_path,</if>
+            <if test="resultFilePath != null">result_file_path,</if>
+            <if test="predictionParams != null">prediction_params,</if>
+            <if test="errorMessage != null">error_message,</if>
+            <if test="executionTime != null">execution_time,</if>
+            <if test="predictionCount != null">prediction_count,</if>
+            <if test="createdBy != null">created_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="predictionName != null and predictionName != ''">#{predictionName},</if>
+            <if test="modelId != null">#{modelId},</if>
+            <if test="modelName != null">#{modelName},</if>
+            <if test="inputData != null">#{inputData},</if>
+            <if test="predictionResult != null">#{predictionResult},</if>
+            <if test="status != null">#{status},</if>
+            <if test="inputFilePath != null">#{inputFilePath},</if>
+            <if test="resultFilePath != null">#{resultFilePath},</if>
+            <if test="predictionParams != null">#{predictionParams},</if>
+            <if test="errorMessage != null">#{errorMessage},</if>
+            <if test="executionTime != null">#{executionTime},</if>
+            <if test="predictionCount != null">#{predictionCount},</if>
+            <if test="createdBy != null">#{createdBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+         </trim>
+    </insert>
+
+    <update id="updatePetrolPrediction" parameterType="PetrolPrediction">
+        update petrol_prediction
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="predictionName != null and predictionName != ''">prediction_name = #{predictionName},</if>
+            <if test="modelId != null">model_id = #{modelId},</if>
+            <if test="modelName != null">model_name = #{modelName},</if>
+            <if test="inputData != null">input_data = #{inputData},</if>
+            <if test="predictionResult != null">prediction_result = #{predictionResult},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="inputFilePath != null">input_file_path = #{inputFilePath},</if>
+            <if test="resultFilePath != null">result_file_path = #{resultFilePath},</if>
+            <if test="predictionParams != null">prediction_params = #{predictionParams},</if>
+            <if test="errorMessage != null">error_message = #{errorMessage},</if>
+            <if test="executionTime != null">execution_time = #{executionTime},</if>
+            <if test="predictionCount != null">prediction_count = #{predictionCount},</if>
+            <if test="createdBy != null">created_by = #{createdBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deletePetrolPredictionById" parameterType="Long">
+        delete from petrol_prediction where id = #{id}
+    </delete>
+
+    <delete id="deletePetrolPredictionByIds" parameterType="String">
+        delete from petrol_prediction where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper>
