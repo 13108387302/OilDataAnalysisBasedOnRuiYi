@@ -1,10 +1,15 @@
 -- =====================================================
 -- 🛢️ RuoYi石油预测系统完整数据库初始化脚本
--- 版本: 6.0 (终极整合版)
+-- 版本: 6.1 (修复版)
 -- 创建日期: 2025-06-30
 -- 更新日期: 2025-07-01
 -- 说明: 包含基于若依项目开发的石油预测系统所有功能表
 --       整合了所有修复脚本，可重复执行，每次都会完全重置数据库到初始状态
+--
+-- 🚀 v6.1 修复版特性:
+--   ✅ 修复首次执行时"Table doesn't exist"错误
+--   ✅ 优化数据清理逻辑，避免表不存在时的错误
+--   ✅ 改进脚本执行顺序，确保首次执行成功
 --
 -- 🚀 v6.0 终极整合版特性:
 --   ✅ 整合了所有独立的修复SQL脚本
@@ -73,15 +78,13 @@ SET FOREIGN_KEY_CHECKS=0;
 SELECT '约束清理已通过表重建完成' as constraint_cleanup_status;
 
 -- 🗑️ 清理所有业务数据（按依赖关系逆序）
-DELETE FROM `petrol_prediction_batch` WHERE 1=1;
-DELETE FROM `petrol_model_training_history` WHERE 1=1;
-DELETE FROM `petrol_visualization_history` WHERE 1=1;
-DELETE FROM `petrol_prediction` WHERE 1=1;
-DELETE FROM `petrol_parameter_recommendation` WHERE 1=1;
-DELETE FROM `petrol_model` WHERE 1=1;
-DELETE FROM `petrol_dataset` WHERE 1=1;
-DELETE FROM `petrol_visualization_config` WHERE 1=1;
-DELETE FROM `pt_analysis_task` WHERE 1=1;
+-- 注意：首次执行时这些表可能不存在，这是正常的
+-- DROP TABLE IF EXISTS 语句会在下面安全地处理表结构
+SELECT '开始清理业务数据...' as cleanup_status;
+
+-- 由于首次执行时表可能不存在，我们将数据清理移到表创建之后
+-- 这样可以避免 "Table doesn't exist" 错误
+SELECT '数据清理将在表创建后进行...' as cleanup_note;
 
 -- 🗑️ 删除所有表结构（按依赖关系逆序）
 DROP TABLE IF EXISTS `petrol_prediction_batch`;
@@ -423,6 +426,25 @@ CHECK (`status` IN ('PENDING', 'RUNNING', 'COMPLETED', 'FAILED', 'CANCELLED'));
 ALTER TABLE `petrol_prediction_batch`
 ADD CONSTRAINT `chk_batch_counts`
 CHECK (`prediction_count` >= 0 AND `completed_count` >= 0 AND `failed_count` >= 0);
+
+-- =====================================================
+-- 第四步B：清理现有数据（表已创建后安全清理）
+-- =====================================================
+
+-- 🗑️ 现在安全清理所有业务数据（按依赖关系逆序）
+SELECT '开始清理现有业务数据...' as cleanup_status;
+
+DELETE FROM `petrol_prediction_batch` WHERE 1=1;
+DELETE FROM `petrol_model_training_history` WHERE 1=1;
+DELETE FROM `petrol_visualization_history` WHERE 1=1;
+DELETE FROM `petrol_prediction` WHERE 1=1;
+DELETE FROM `petrol_parameter_recommendation` WHERE 1=1;
+DELETE FROM `petrol_model` WHERE 1=1;
+DELETE FROM `petrol_dataset` WHERE 1=1;
+DELETE FROM `petrol_visualization_config` WHERE 1=1;
+DELETE FROM `pt_analysis_task` WHERE 1=1;
+
+SELECT '业务数据清理完成' as cleanup_complete;
 
 -- =====================================================
 -- 第五步：插入默认配置数据
