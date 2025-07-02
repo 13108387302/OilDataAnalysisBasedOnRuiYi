@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.apache.poi.ss.usermodel.*;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.util.*;
 
 /**
@@ -644,7 +645,12 @@ public class DataSourceServiceImpl implements IDataSourceService {
     private List<Map<String, Object>> readExcelWithPOI(File file, List<String> columns, int maxRows) {
         List<Map<String, Object>> data = new ArrayList<>();
 
-        try (Workbook workbook = WorkbookFactory.create(file)) {
+        Workbook workbook = null;
+        try {
+            // 使用只读模式打开Excel文件，避免保存时的错误
+            FileInputStream fis = new FileInputStream(file);
+            workbook = WorkbookFactory.create(fis);
+            fis.close(); // 立即关闭文件流
             Sheet sheet = workbook.getSheetAt(0);
             Row headerRow = sheet.getRow(0);
 
@@ -700,6 +706,16 @@ public class DataSourceServiceImpl implements IDataSourceService {
         } catch (Exception e) {
             log.error("读取Excel文件失败: {}", file.getAbsolutePath(), e);
             throw new RuntimeException("读取Excel文件失败: " + file.getAbsolutePath(), e);
+        } finally {
+            // 安全关闭工作簿，避免保存操作
+            if (workbook != null) {
+                try {
+                    workbook.close();
+                } catch (Exception e) {
+                    // 忽略关闭时的错误，因为我们只是读取数据
+                    log.debug("关闭Excel工作簿时出现错误（可忽略）: {}", e.getMessage());
+                }
+            }
         }
 
         return data;

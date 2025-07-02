@@ -74,13 +74,126 @@ class BaseAlgorithm:
             raise FileNotFoundError(f"Input file not found at: {self.file_path}")
 
         if self.file_path.suffix == '.xlsx':
-            return pd.read_excel(self.file_path)
+            return self._read_excel_file()
+
+        elif self.file_path.suffix == '.csv':
+            # 支持CSV文件
+            return pd.read_csv(self.file_path)
+
         # Add support for other file types like .las if needed
         # elif self.file_path.suffix == '.las':
         #     import lasio
         #     return lasio.read(self.file_path).df()
         else:
             raise ValueError(f"Unsupported file type: {self.file_path.suffix}")
+
+    def _read_excel_file(self):
+        """读取Excel文件，支持多工作表"""
+        import zipfile
+
+        # 首先检查文件是否真的是Excel格式
+        try:
+            # 尝试作为zip文件打开（Excel文件本质上是zip文件）
+            with zipfile.ZipFile(self.file_path, 'r') as zip_file:
+                file_list = zip_file.namelist()
+                # 检查是否包含Excel必需的文件
+                required_files = ['xl/workbook.xml', '[Content_Types].xml']
+                missing_files = [f for f in required_files if f not in file_list]
+
+                if missing_files:
+                    # 如果缺少必需文件，可能是损坏的Excel文件
+                    # 尝试作为CSV读取
+                    return self._try_read_as_csv()
+
+        except zipfile.BadZipFile:
+            # 文件不是有效的zip文件，可能是CSV文件被错误命名为xlsx
+            return self._try_read_as_csv()
+
+        # 如果文件格式检查通过，尝试读取Excel
+        return self._read_excel_with_multiple_engines()
+
+    def _try_read_as_csv(self):
+        """尝试将文件作为CSV读取"""
+        try:
+            # 尝试作为CSV读取
+            with open(self.file_path, 'r', encoding='utf-8') as f:
+                first_line = f.readline()
+                if ',' in first_line or '\t' in first_line:
+                    separator = ',' if ',' in first_line else '\t'
+                    return pd.read_csv(self.file_path, sep=separator)
+        except Exception:
+            pass
+
+        # 尝试其他编码
+        try:
+            with open(self.file_path, 'r', encoding='gbk') as f:
+                first_line = f.readline()
+                if ',' in first_line or '\t' in first_line:
+                    separator = ',' if ',' in first_line else '\t'
+                    return pd.read_csv(self.file_path, sep=separator, encoding='gbk')
+        except Exception:
+            pass
+
+        raise ValueError(f"文件 {self.file_path} 不是有效的Excel或CSV文件格式")
+
+    def _read_excel_with_multiple_engines(self):
+        """使用多种引擎尝试读取Excel文件"""
+
+        # 首先尝试获取工作表信息
+        sheet_names = None
+        try:
+            import openpyxl
+            workbook = openpyxl.load_workbook(self.file_path, read_only=True)
+            sheet_names = workbook.sheetnames
+            workbook.close()
+        except Exception:
+            pass
+
+        # 定义可能的工作表名称（优先级从高到低）
+        preferred_sheets = ['测井数据', '数据', 'data', 'Data', 'Sheet1', '工作表1']
+
+        # 如果有工作表信息，选择最合适的工作表
+        target_sheet = None
+        if sheet_names:
+            # 优先选择包含石油参数的工作表
+            for sheet in preferred_sheets:
+                if sheet in sheet_names:
+                    target_sheet = sheet
+                    break
+
+            # 如果没找到首选工作表，使用第一个工作表
+            if target_sheet is None:
+                target_sheet = sheet_names[0]
+
+        # 尝试不同的引擎读取
+        engines = ['openpyxl', 'xlrd', None]  # None表示使用默认引擎
+
+        for engine in engines:
+            try:
+                if target_sheet:
+                    # 指定工作表读取
+                    if engine:
+                        return pd.read_excel(self.file_path, sheet_name=target_sheet, engine=engine)
+                    else:
+                        return pd.read_excel(self.file_path, sheet_name=target_sheet)
+                else:
+                    # 不指定工作表，使用默认
+                    if engine:
+                        return pd.read_excel(self.file_path, engine=engine)
+                    else:
+                        return pd.read_excel(self.file_path)
+
+            except Exception as e:
+                last_error = e
+                continue
+
+        # 如果所有方法都失败，抛出详细错误信息
+        error_msg = f"无法读取Excel文件 {self.file_path}。\n"
+        if sheet_names:
+            error_msg += f"工作表: {sheet_names}\n"
+        error_msg += f"最后错误: {str(last_error)}\n"
+        error_msg += "建议：请检查文件是否损坏，或尝试重新生成Excel文件。"
+        raise ValueError(error_msg)
 
 
     def run(self) -> dict:

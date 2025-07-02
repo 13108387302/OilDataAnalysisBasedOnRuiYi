@@ -1,11 +1,14 @@
 package com.ruoyi.petrol.service.impl;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.math.BigDecimal;
 import java.util.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -258,6 +261,25 @@ public class PetrolDatasetServiceImpl implements IPetrolDatasetService
             log.info("Upload dir: {}", uploadDir);
             log.info("File name returned by upload: {}", fileName);
             log.info("Actual file path: {}", actualFilePath);
+
+            // 验证上传的Excel文件格式
+            String originalFilename = file.getOriginalFilename();
+            if (originalFilename != null &&
+                (originalFilename.toLowerCase().endsWith(".xlsx") ||
+                 originalFilename.toLowerCase().endsWith(".xls"))) {
+
+                File uploadedFile = new File(actualFilePath);
+                if (!validateExcelFile(uploadedFile)) {
+                    // 删除损坏的文件
+                    uploadedFile.delete();
+
+                    result.put("success", false);
+                    result.put("message", "上传的Excel文件格式不正确或已损坏，请检查文件完整性后重新上传");
+                    return result;
+                }
+
+                log.info("✅ Excel文件格式验证通过: {}", file.getOriginalFilename());
+            }
 
             // 分析文件内容
             Map<String, Object> analysisResult = analyzeDatasetFile(actualFilePath);
@@ -777,7 +799,9 @@ public class PetrolDatasetServiceImpl implements IPetrolDatasetService
             // 保存分片文件
             String chunkFileName = fileHash + "_" + chunkIndex;
             File chunkFile = new File(chunkDir, chunkFileName);
-            chunk.transferTo(chunkFile);
+
+            // 使用安全的方式保存分片文件，避免transferTo可能导致的损坏
+            saveChunkSecurely(chunk, chunkFile);
 
             log.info("分片上传成功: {} ({}/{})", chunkFileName, chunkIndex + 1, totalChunks);
 
@@ -868,27 +892,49 @@ public class PetrolDatasetServiceImpl implements IPetrolDatasetService
 
             String chunkDir = profile + File.separator + "chunks" + File.separator + fileHash;
 
-            try (FileOutputStream fos = new FileOutputStream(finalFile)) {
+            try (FileOutputStream fos = new FileOutputStream(finalFile);
+                 BufferedOutputStream bos = new BufferedOutputStream(fos, 65536)) { // 64KB缓冲区
+
                 for (int i = 0; i < totalChunks; i++) {
                     String chunkFileName = fileHash + "_" + i;
                     File chunkFile = new File(chunkDir, chunkFileName);
 
-                    try (FileInputStream fis = new FileInputStream(chunkFile)) {
+                    if (!chunkFile.exists()) {
+                        throw new RuntimeException("分片文件不存在: " + chunkFileName);
+                    }
+
+                    try (FileInputStream fis = new FileInputStream(chunkFile);
+                         BufferedInputStream bis = new BufferedInputStream(fis, 65536)) {
+
                         byte[] buffer = new byte[8192];
                         int bytesRead;
-                        while ((bytesRead = fis.read(buffer)) != -1) {
-                            fos.write(buffer, 0, bytesRead);
+                        while ((bytesRead = bis.read(buffer)) != -1) {
+                            bos.write(buffer, 0, bytesRead);
                         }
                     }
                 }
+
+                // 确保所有数据都写入磁盘
+                bos.flush();
+                fos.getFD().sync();
             }
 
             // 验证文件大小
             if (finalFile.length() != fileSize) {
                 finalFile.delete();
                 result.put("success", false);
-                result.put("message", "文件合并后大小不匹配");
+                result.put("message", "文件合并后大小不匹配，期望: " + fileSize + "，实际: " + finalFile.length());
                 return result;
+            }
+
+            // 验证Excel文件格式（如果是Excel文件）
+            if (fileName.toLowerCase().endsWith(".xlsx") || fileName.toLowerCase().endsWith(".xls")) {
+                if (!validateExcelFile(finalFile)) {
+                    finalFile.delete();
+                    result.put("success", false);
+                    result.put("message", "Excel文件格式验证失败，文件可能在合并过程中损坏");
+                    return result;
+                }
             }
 
             // 分析文件并创建数据集
@@ -942,6 +988,76 @@ public class PetrolDatasetServiceImpl implements IPetrolDatasetService
         }
 
         return result;
+    }
+
+    /**
+     * 安全地保存分片文件
+     */
+    private void saveChunkSecurely(MultipartFile chunk, File chunkFile) throws IOException {
+        // 确保父目录存在
+        File parentDir = chunkFile.getParentFile();
+        if (!parentDir.exists()) {
+            parentDir.mkdirs();
+        }
+
+        // 使用缓冲流进行文件复制，确保数据完整性
+        try (InputStream inputStream = chunk.getInputStream();
+             BufferedInputStream bis = new BufferedInputStream(inputStream, 8192);
+             FileOutputStream fos = new FileOutputStream(chunkFile);
+             BufferedOutputStream bos = new BufferedOutputStream(fos, 8192)) {
+
+            byte[] buffer = new byte[8192];
+            int bytesRead;
+
+            while ((bytesRead = bis.read(buffer)) != -1) {
+                bos.write(buffer, 0, bytesRead);
+            }
+
+            // 确保所有数据都写入磁盘
+            bos.flush();
+            fos.getFD().sync();
+
+        } catch (IOException e) {
+            // 如果保存失败，删除可能的不完整文件
+            if (chunkFile.exists()) {
+                chunkFile.delete();
+            }
+            throw e;
+        }
+    }
+
+    /**
+     * 验证Excel文件格式
+     */
+    private boolean validateExcelFile(File file) {
+        try {
+            // 使用POI尝试打开Excel文件
+            Workbook workbook = WorkbookFactory.create(file);
+
+            // 检查是否至少有一个工作表
+            if (workbook.getNumberOfSheets() == 0) {
+                workbook.close();
+                return false;
+            }
+
+            // 尝试读取第一个工作表的第一行
+            Sheet sheet = workbook.getSheetAt(0);
+            if (sheet != null && sheet.getPhysicalNumberOfRows() > 0) {
+                Row firstRow = sheet.getRow(0);
+                if (firstRow != null) {
+                    // 文件格式正常
+                    workbook.close();
+                    return true;
+                }
+            }
+
+            workbook.close();
+            return true; // 即使没有数据，格式也是正确的
+
+        } catch (Exception e) {
+            log.error("Excel文件格式验证失败: {}", e.getMessage());
+            return false;
+        }
     }
 
     /**

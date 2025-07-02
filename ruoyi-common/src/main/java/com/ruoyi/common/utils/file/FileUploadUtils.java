@@ -1,7 +1,11 @@
 package com.ruoyi.common.utils.file;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Paths;
 import java.util.Objects;
 import org.apache.commons.io.FilenameUtils;
@@ -135,8 +139,49 @@ public class FileUploadUtils
         String fileName = useCustomNaming ? uuidFilename(file) : extractFilename(file);
 
         String absPath = getAbsoluteFile(baseDir, fileName).getAbsolutePath();
-        file.transferTo(Paths.get(absPath));
+
+        // 使用更安全的文件保存方式，避免transferTo可能导致的文件损坏
+        saveFileSecurely(file, absPath);
+
         return getPathFileName(baseDir, fileName);
+    }
+
+    /**
+     * 安全地保存文件，避免transferTo可能导致的文件损坏
+     */
+    private static void saveFileSecurely(MultipartFile file, String absPath) throws IOException {
+        File targetFile = new File(absPath);
+
+        // 确保父目录存在
+        File parentDir = targetFile.getParentFile();
+        if (!parentDir.exists()) {
+            parentDir.mkdirs();
+        }
+
+        // 使用缓冲流进行文件复制，确保数据完整性
+        try (InputStream inputStream = file.getInputStream();
+             BufferedInputStream bis = new BufferedInputStream(inputStream, 8192);
+             FileOutputStream fos = new FileOutputStream(targetFile);
+             BufferedOutputStream bos = new BufferedOutputStream(fos, 8192)) {
+
+            byte[] buffer = new byte[8192];
+            int bytesRead;
+
+            while ((bytesRead = bis.read(buffer)) != -1) {
+                bos.write(buffer, 0, bytesRead);
+            }
+
+            // 确保所有数据都写入磁盘
+            bos.flush();
+            fos.getFD().sync();
+
+        } catch (IOException e) {
+            // 如果保存失败，删除可能的不完整文件
+            if (targetFile.exists()) {
+                targetFile.delete();
+            }
+            throw e;
+        }
     }
 
     /**
