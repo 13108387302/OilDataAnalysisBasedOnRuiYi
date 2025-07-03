@@ -18,6 +18,7 @@ import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.utils.file.FileUploadUtils;
 import com.ruoyi.common.utils.file.FileUtils;
+import com.ruoyi.common.utils.file.MimeTypeUtils;
 import com.ruoyi.framework.config.ServerConfig;
 import com.ruoyi.common.constant.Constants;
 
@@ -82,8 +83,9 @@ public class CommonController
         {
             // 上传文件路径
             String filePath = ruoYiConfig.getUploadPath();
-            // 上传并返回新文件名称
-            String fileName = FileUploadUtils.upload(filePath, file);
+            // 使用事务性上传，确保文件完整性
+            String fileName = FileUploadUtils.uploadWithTransaction(filePath, file,
+                MimeTypeUtils.DEFAULT_ALLOWED_EXTENSION, false);
             String url = serverConfig.getUrl() + fileName;
             AjaxResult ajax = AjaxResult.success();
             ajax.put("url", url);

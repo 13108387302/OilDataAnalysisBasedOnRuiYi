@@ -22,6 +22,7 @@ import org.springframework.web.multipart.MultipartFile;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.SecurityUtils;
 import com.ruoyi.common.utils.file.FileUploadUtils;
+import com.ruoyi.common.utils.file.MimeTypeUtils;
 
 import com.ruoyi.petrol.domain.PetrolDataset;
 import com.ruoyi.petrol.mapper.PetrolDatasetMapper;
@@ -222,8 +223,14 @@ public class PetrolDatasetServiceImpl implements IPetrolDatasetService
     public Map<String, Object> uploadDataset(MultipartFile file, String datasetName, String description, String category)
     {
         Map<String, Object> result = new HashMap<>();
-        
+
         try {
+            // 调试信息：检查原始MultipartFile
+            System.out.println("🔍 [DEBUG] 数据集上传开始");
+            System.out.println("🔍 [DEBUG] 原始文件名: " + file.getOriginalFilename());
+            System.out.println("🔍 [DEBUG] 文件大小: " + file.getSize() + " 字节");
+            System.out.println("🔍 [DEBUG] 内容类型: " + file.getContentType());
+            System.out.println("🔍 [DEBUG] 是否为空: " + file.isEmpty());
             // 验证文件格式
             Map<String, Object> validation = validateDatasetFile(file);
             if (!(Boolean) validation.get("valid")) {
@@ -240,9 +247,12 @@ public class PetrolDatasetServiceImpl implements IPetrolDatasetService
                 return result;
             }
 
-            // 上传文件
+            // 使用事务性上传文件，确保文件完整性
             String uploadDir = profile + "/datasets/";
-            String fileName = FileUploadUtils.upload(uploadDir, file);
+            System.out.println("🔍 [DEBUG] 开始上传文件到: " + uploadDir);
+            String fileName = FileUploadUtils.uploadWithTransaction(uploadDir, file,
+                MimeTypeUtils.DEFAULT_ALLOWED_EXTENSION, false);
+            System.out.println("🔍 [DEBUG] 文件上传完成，返回文件名: " + fileName);
 
             // fileName 返回的是相对于profile的路径，如：/profile/datasets/xxx.xlsx
             // 我们需要转换为实际的文件系统路径
@@ -269,6 +279,10 @@ public class PetrolDatasetServiceImpl implements IPetrolDatasetService
                  originalFilename.toLowerCase().endsWith(".xls"))) {
 
                 File uploadedFile = new File(actualFilePath);
+                System.out.println("🔍 [DEBUG] 开始验证Excel文件: " + actualFilePath);
+                System.out.println("🔍 [DEBUG] 文件存在: " + uploadedFile.exists());
+                System.out.println("🔍 [DEBUG] 文件大小: " + uploadedFile.length() + " 字节");
+
                 if (!validateExcelFile(uploadedFile)) {
                     // 删除损坏的文件
                     uploadedFile.delete();
@@ -454,7 +468,8 @@ public class PetrolDatasetServiceImpl implements IPetrolDatasetService
         Map<String, Object> stats = new HashMap<>();
         List<Map<String, Object>> columns = new ArrayList<>();
 
-        try (Workbook workbook = WorkbookFactory.create(new File(filePath))) {
+        try (FileInputStream fis = new FileInputStream(filePath);
+             Workbook workbook = WorkbookFactory.create(fis)) {
             Sheet sheet = workbook.getSheetAt(0);
 
             // 获取总行数和列数
@@ -646,7 +661,8 @@ public class PetrolDatasetServiceImpl implements IPetrolDatasetService
         }
 
         if ("xlsx".equals(extension) || "xls".equals(extension)) {
-            try (Workbook workbook = WorkbookFactory.create(file)) {
+            try (FileInputStream fis = new FileInputStream(file);
+                 Workbook workbook = WorkbookFactory.create(fis)) {
                 Sheet sheet = workbook.getSheetAt(0);
                 int maxRows = Math.min(rows, sheet.getLastRowNum() + 1);
 
@@ -886,15 +902,19 @@ public class PetrolDatasetServiceImpl implements IPetrolDatasetService
                 uploadDirFile.mkdirs();
             }
 
-            // 合并分片
+            // 合并分片 - 使用临时文件确保原子性
             String finalFileName = System.currentTimeMillis() + "_" + fileName;
             File finalFile = new File(uploadDir, finalFileName);
+            File tempFile = new File(uploadDir, finalFileName + ".tmp");
 
             String chunkDir = profile + File.separator + "chunks" + File.separator + fileHash;
+            long totalWrittenBytes = 0;
 
-            try (FileOutputStream fos = new FileOutputStream(finalFile);
+            try (FileOutputStream fos = new FileOutputStream(tempFile);
                  BufferedOutputStream bos = new BufferedOutputStream(fos, 65536)) { // 64KB缓冲区
 
+                // 验证所有分片文件存在且大小正确
+                long expectedTotalSize = 0;
                 for (int i = 0; i < totalChunks; i++) {
                     String chunkFileName = fileHash + "_" + i;
                     File chunkFile = new File(chunkDir, chunkFileName);
@@ -903,20 +923,75 @@ public class PetrolDatasetServiceImpl implements IPetrolDatasetService
                         throw new RuntimeException("分片文件不存在: " + chunkFileName);
                     }
 
+                    if (!chunkFile.canRead()) {
+                        throw new RuntimeException("分片文件无法读取: " + chunkFileName);
+                    }
+
+                    expectedTotalSize += chunkFile.length();
+                }
+
+                // 验证预期总大小
+                if (expectedTotalSize != fileSize) {
+                    throw new RuntimeException(String.format("分片总大小不匹配，期望: %d，实际: %d",
+                        fileSize, expectedTotalSize));
+                }
+
+                // 按顺序合并分片
+                for (int i = 0; i < totalChunks; i++) {
+                    String chunkFileName = fileHash + "_" + i;
+                    File chunkFile = new File(chunkDir, chunkFileName);
+
                     try (FileInputStream fis = new FileInputStream(chunkFile);
                          BufferedInputStream bis = new BufferedInputStream(fis, 65536)) {
 
-                        byte[] buffer = new byte[8192];
+                        byte[] buffer = new byte[65536]; // 使用更大的缓冲区
                         int bytesRead;
                         while ((bytesRead = bis.read(buffer)) != -1) {
                             bos.write(buffer, 0, bytesRead);
+                            totalWrittenBytes += bytesRead;
                         }
                     }
+
+                    log.debug("分片 {} 合并完成，大小: {} 字节", i, chunkFile.length());
                 }
 
                 // 确保所有数据都写入磁盘
                 bos.flush();
                 fos.getFD().sync();
+            }
+
+            // 验证写入的字节数
+            if (totalWrittenBytes != fileSize) {
+                tempFile.delete();
+                throw new RuntimeException(String.format("写入字节数不匹配，期望: %d，实际: %d",
+                    fileSize, totalWrittenBytes));
+            }
+
+            // 验证临时文件大小
+            if (tempFile.length() != fileSize) {
+                tempFile.delete();
+                throw new RuntimeException(String.format("临时文件大小不匹配，期望: %d，实际: %d",
+                    fileSize, tempFile.length()));
+            }
+
+            // 原子性地重命名临时文件为最终文件
+            try {
+                if (finalFile.exists()) {
+                    finalFile.delete();
+                }
+
+                if (!tempFile.renameTo(finalFile)) {
+                    // 如果重命名失败，尝试使用NIO
+                    java.nio.file.Files.move(tempFile.toPath(), finalFile.toPath(),
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+                        java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+                }
+            } catch (Exception e) {
+                // 清理临时文件
+                if (tempFile.exists()) {
+                    tempFile.delete();
+                }
+                throw new RuntimeException("文件重命名失败: " + e.getMessage(), e);
             }
 
             // 验证文件大小
@@ -1031,8 +1106,15 @@ public class PetrolDatasetServiceImpl implements IPetrolDatasetService
      */
     private boolean validateExcelFile(File file) {
         try {
-            // 使用POI尝试打开Excel文件
-            Workbook workbook = WorkbookFactory.create(file);
+            System.out.println("🔍 [DEBUG] validateExcelFile - 开始验证: " + file.getAbsolutePath());
+            System.out.println("🔍 [DEBUG] validateExcelFile - 文件大小: " + file.length() + " 字节");
+
+            // 使用POI尝试打开Excel文件 - 使用InputStream避免修改原文件
+            Workbook workbook;
+            try (FileInputStream fis = new FileInputStream(file)) {
+                workbook = WorkbookFactory.create(fis);
+                System.out.println("🔍 [DEBUG] validateExcelFile - POI成功打开文件");
+            }
 
             // 检查是否至少有一个工作表
             if (workbook.getNumberOfSheets() == 0) {
@@ -1055,6 +1137,8 @@ public class PetrolDatasetServiceImpl implements IPetrolDatasetService
             return true; // 即使没有数据，格式也是正确的
 
         } catch (Exception e) {
+            System.out.println("❌ [DEBUG] validateExcelFile - 验证失败: " + e.getMessage());
+            e.printStackTrace();
             log.error("Excel文件格式验证失败: {}", e.getMessage());
             return false;
         }

@@ -90,4 +90,23 @@
     <logger name="sys-user" level="info">
         <appender-ref ref="sys-user"/>
     </logger>
-</configuration> 
+
+    <!-- 文件上传日志输出 -->
+    <appender name="file-upload" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${log.path}/file-upload.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <!-- 按天回滚 daily -->
+            <fileNamePattern>${log.path}/file-upload.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <!-- 日志最大的历史 60天 -->
+            <maxHistory>60</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${log.pattern}</pattern>
+        </encoder>
+    </appender>
+
+    <!--文件上传监控日志-->
+    <logger name="FILE_UPLOAD" level="info">
+        <appender-ref ref="file-upload"/>
+    </logger>
+</configuration>
