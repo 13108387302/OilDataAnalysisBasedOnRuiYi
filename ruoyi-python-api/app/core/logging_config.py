@@ -1,12 +1,17 @@
 import logging
+import os
 from pathlib import Path
 
 def setup_file_logging():
     """
     配置日志系统，将日志输出到指定目录。
     """
+    # 获取项目根目录（向上两级目录到达项目根目录）
+    current_dir = Path(__file__).parent.parent.parent  # 从 app/core/ 向上到 ruoyi-python-api/
+    project_root = current_dir.parent  # 再向上一级到项目根目录
+
     # 定义日志目录，与Java后端保持一致
-    LOG_DIR = Path("E:/Code/RuoYi_/RuoYi-Vue/logs")
+    LOG_DIR = project_root / "logs"
     LOG_DIR.mkdir(exist_ok=True)
 
     # 定义不同类型的日志文件

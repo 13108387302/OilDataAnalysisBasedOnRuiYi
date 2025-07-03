@@ -4,7 +4,7 @@
     <statusListener class="ch.qos.logback.core.status.OnConsoleStatusListener" />
 
     <!-- 日志文件保存路径 (在项目根目录下的logs文件夹中) -->
-    <property name="LOG_PATH" value="E:/Code/RuoYi_/RuoYi-Vue/logs" />
+    <property name="LOG_PATH" value="./logs" />
 
     <!-- 日志输出格式 -->
     <property name="LOG_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n" />
